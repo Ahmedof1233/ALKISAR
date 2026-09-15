@@ -370,9 +370,10 @@
 
   <script>
     // دعم الرابط المحلي والإنتاجي تلقائياً
+    const BACKEND = 'https://alkisar-ge9b.vercel.app';
     const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
       ? 'http://localhost:3001/api'
-      : (window.location.origin + '/api');
+      : (BACKEND + '/api');
     let currentEs = null;
 
     const STATUS_CONFIG = {

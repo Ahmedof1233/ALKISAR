@@ -490,8 +490,9 @@
 
 <script>
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const API      = isLocal ? 'http://localhost:3001/api' : (window.location.origin + '/api');
-  const IMG_BASE = isLocal ? 'http://localhost:3001' : window.location.origin;
+  const BACKEND  = 'https://alkisar-ge9b.vercel.app';
+  const API      = isLocal ? 'http://localhost:3001/api' : (BACKEND + '/api');
+  const IMG_BASE = isLocal ? 'http://localhost:3001' : BACKEND;
 
   let allItems = [];
   let cart     = {};
