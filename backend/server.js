@@ -76,6 +76,22 @@ function ensureInit() {
         res.json({ success: true, message: '🍽️ مطعم القيصر — الخادم يعمل بنجاح', timestamp: new Date() });
       });
 
+      app.get('/', (req, res) => {
+        res.json({
+          success: true,
+          name: '🍽️ مطعم القيصر — API Server',
+          version: '1.0.0',
+          status: 'running',
+          endpoints: [
+            'GET  /api/health',
+            'GET  /api/items',
+            'POST /api/orders',
+            'GET  /api/orders/:id',
+            'PATCH /api/orders/:id/status',
+          ]
+        });
+      });
+
       app.use((req, res) => {
         res.status(404).json({ success: false, message: `المسار ${req.path} غير موجود` });
       });
