@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>تتبع طلبك — مطعم القيصر</title>
+  <meta name="description" content="تتبع حالة طلبك في مطعم القيصر بشكل فوري" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brand:   #f97316;
+      --brand-d: #ea580c;
+      --dark-1:  #0a0a0f;
+      --dark-2:  #12121a;
+      --dark-3:  #1a1a28;
+      --dark-4:  #22223a;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      background: var(--dark-1);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .container { width: 100%; max-width: 480px; }
+
+    /* Logo */
+    .logo {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .logo-icon {
+      width: 72px; height: 72px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-d));
+      border-radius: 20px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 2rem;
+      box-shadow: 0 20px 40px rgba(249,115,22,.3);
+      margin-bottom: .75rem;
+    }
+    .logo h1 { font-size: 1.5rem; font-weight: 800; color: white; }
+    .logo p  { font-size: .85rem; color: var(--muted); margin-top: .25rem; }
+
+    /* Card */
+    .card {
+      background: var(--dark-2);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 20px;
+      padding: 1.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    /* Input row */
+    .search-row { display: flex; gap: .75rem; }
+    .input-field {
+      flex: 1;
+      background: var(--dark-3);
+      border: 1px solid rgba(255,255,255,.1);
+      color: var(--text);
+      border-radius: 14px;
+      padding: .75rem 1rem;
+      font-family: 'Cairo', sans-serif;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .input-field::placeholder { color: var(--muted); }
+    .input-field:focus {
+      border-color: rgba(249,115,22,.5);
+      box-shadow: 0 0 0 3px rgba(249,115,22,.1);
+    }
+
+    .btn {
+      background: var(--brand);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      padding: .75rem 1.5rem;
+      font-family: 'Cairo', sans-serif;
+      font-size: .95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .2s, transform .15s;
+      white-space: nowrap;
+    }
+    .btn:hover   { background: var(--brand-d); transform: scale(1.03); }
+    .btn:active  { transform: scale(.97); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    /* Status display */
+    #status-card { display: none; }
+
+    .order-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.25rem;
+    }
+    .order-id   { font-size: .8rem; color: var(--muted); font-family: monospace; }
+    .order-name { font-size: 1.2rem; font-weight: 700; color: white; margin-top: .25rem; }
+    .order-total { font-size: 1.3rem; font-weight: 800; color: var(--brand); }
+
+    /* Progress stepper */
+    .stepper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin: 1.5rem 0;
+    }
+
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .4rem;
+      flex: 1;
+    }
+    .step-circle {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+      border: 2px solid rgba(255,255,255,.1);
+      background: var(--dark-3);
+      transition: all .4s ease;
+    }
+    .step-label {
+      font-size: .7rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.3;
+      transition: color .4s;
+    }
+    .step.done .step-circle  { background: rgba(34,197,94,.15); border-color: rgba(34,197,94,.4); }
+    .step.active .step-circle { background: rgba(249,115,22,.2); border-color: var(--brand); box-shadow: 0 0 20px rgba(249,115,22,.3); }
+    .step.done .step-label   { color: #4ade80; }
+    .step.active .step-label { color: var(--brand); font-weight: 700; }
+    .step-time {
+      font-size: .62rem;
+      color: var(--muted);
+      background: rgba(255,255,255,.05);
+      padding: 2px 6px;
+      border-radius: 6px;
+      white-space: nowrap;
+      margin-top: .15rem;
+    }
+    .step.active .step-time {
+      color: #fed7aa;
+      background: rgba(249,115,22,.15);
+      font-weight: 600;
+    }
+
+    .step-line {
+      height: 2px;
+      flex: .4;
+      background: rgba(255,255,255,.06);
+      transition: background .4s;
+    }
+    .step-line.done { background: rgba(34,197,94,.4); }
+
+    /* Badge */
+    .status-badge {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .5rem 1.25rem; border-radius: 999px;
+      font-size: .85rem; font-weight: 700;
+      border: 1px solid;
+    }
+    .badge-pending    { background: rgba(234,179,8,.1);  color: #facc15; border-color: rgba(234,179,8,.2); }
+    .badge-preparing  { background: rgba(59,130,246,.1); color: #60a5fa; border-color: rgba(59,130,246,.2); }
+    .badge-delivering { background: rgba(168,85,247,.1); color: #c084fc; border-color: rgba(168,85,247,.2); }
+    .badge-delivered  { background: rgba(34,197,94,.1);  color: #4ade80; border-color: rgba(34,197,94,.2); }
+
+    /* Time Estimate Box */
+    .time-estimate-box {
+      background: linear-gradient(135deg, rgba(249,115,22,.08), rgba(249,115,22,.02));
+      border: 1px solid rgba(249,115,22,.2);
+      border-radius: 16px;
+      padding: 1rem 1.25rem;
+      margin: 1.25rem 0;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .time-icon {
+      font-size: 2rem;
+      flex-shrink: 0;
+    }
+    .time-content { flex: 1; min-width: 0; }
+    .time-title { font-size: .75rem; color: var(--muted); }
+    .time-val { font-size: 1.15rem; font-weight: 800; color: #fb923c; margin: .1rem 0; }
+    .time-desc { font-size: .8rem; color: #cbd5e1; line-height: 1.35; }
+
+    /* Live dot */
+    .live-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      background: #4ade80;
+      border-radius: 50%;
+      animation: pulseDot 2s ease-in-out infinite;
+      vertical-align: middle;
+    }
+    @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+
+    /* SSE status */
+    .sse-status {
+      display: flex; align-items: center; gap: .5rem;
+      font-size: .75rem; color: var(--muted);
+      margin-top: 1rem;
+    }
+
+    /* Error */
+    .error-msg {
+      background: rgba(239,68,68,.1);
+      border: 1px solid rgba(239,68,68,.2);
+      color: #f87171;
+      border-radius: 12px;
+      padding: .75rem 1rem;
+      font-size: .9rem;
+      display: none;
+    }
+
+    /* Animation */
+    @keyframes fadeIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+    .fade-in { animation: fadeIn .35s ease-out; }
+
+    /* Navigation links */
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      color: var(--brand);
+      text-decoration: none;
+      font-size: .9rem;
+      font-weight: 700;
+      padding: .5rem 1.1rem;
+      border: 1px solid rgba(249,115,22,.3);
+      border-radius: 999px;
+      transition: background .2s, transform .15s;
+      background: rgba(249,115,22,.08);
+    }
+    .nav-link:hover { background: rgba(249,115,22,.18); transform: scale(1.03); }
+
+    .page-nav {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .new-order-row {
+      text-align: center;
+      margin-top: .25rem;
+    }
+    .new-order-row a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: .85rem;
+      transition: color .2s;
+    }
+    .new-order-row a:hover { color: white; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Logo -->
+    <div class="logo">
+      <div class="logo-icon">👑</div>
+      <h1>مطعم القيصر</h1>
+      <p>تتبع حالة طلبك بشكل فوري</p>
+    </div>
+
+    <!-- زر الطلب الجديد -->
+    <div class="page-nav">
+      <a href="order.html" class="nav-link">🛒 اطلب الآن</a>
+    </div>
+
+    <!-- Search Card -->
+    <div class="card">
+      <label style="display:block;font-size:.9rem;color:#94a3b8;margin-bottom:.75rem;">
+        أدخل رقم طلبك للمتابعة
+      </label>
+      <div class="search-row">
+        <input
+          id="order-id-input"
+          class="input-field"
+          type="number"
+          placeholder="مثال: 1"
+          min="1"
+        />
+        <button id="track-btn" class="btn" onclick="startTracking()">تتبع</button>
+      </div>
+      <div id="error-msg" class="error-msg" style="margin-top:.75rem;"></div>
+    </div>
+
+    <!-- Status Card -->
+    <div id="status-card" class="card fade-in">
+      <div class="order-header">
+        <div>
+          <div class="order-id" id="display-id"></div>
+          <div class="order-name" id="display-name"></div>
+        </div>
+        <div class="order-total" id="display-total"></div>
+      </div>
+
+      <!-- Badge -->
+      <div style="text-align:center;margin-bottom:1rem;">
+        <span id="status-badge" class="status-badge"></span>
+      </div>
+
+      <!-- Time Estimate Box -->
+      <div class="time-estimate-box">
+        <div class="time-icon" id="time-icon">⏳</div>
+        <div class="time-content">
+          <div class="time-title">الوقت التقديري المتبقي</div>
+          <div class="time-val" id="time-val">--</div>
+          <div class="time-desc" id="time-desc">--</div>
+        </div>
+      </div>
+
+      <!-- Stepper (4 مراحل مع الأوقات المتوسطة) -->
+      <div class="stepper">
+        <div class="step" id="step-pending">
+          <div class="step-circle">⏳</div>
+          <div class="step-label">جارِ الانتظار</div>
+          <div class="step-time">1 - 2 د</div>
+        </div>
+        <div class="step-line" id="line-1"></div>
+        <div class="step" id="step-preparing">
+          <div class="step-circle">👨‍🍳</div>
+          <div class="step-label">قيد التحضير</div>
+          <div class="step-time">25 - 45 د</div>
+        </div>
+        <div class="step-line" id="line-2"></div>
+        <div class="step" id="step-delivering">
+          <div class="step-circle">🛵</div>
+          <div class="step-label">مع المندوب</div>
+          <div class="step-time">10 - 20 د</div>
+        </div>
+        <div class="step-line" id="line-3"></div>
+        <div class="step" id="step-delivered">
+          <div class="step-circle">✅</div>
+          <div class="step-label">تم التسليم</div>
+          <div class="step-time">بالهناء والشفاء</div>
+        </div>
+      </div>
+
+      <!-- SSE Live status -->
+      <div class="sse-status">
+        <span class="live-dot"></span>
+        <span id="sse-label">متصل — يتابع التحديثات تلقائياً</span>
+      </div>
+    </div>
+
+    <!-- رابط طلب جديد -->
+    <div class="new-order-row">
+      <a href="order.html">➕ تريد تقديم طلب جديد؟ اضغط هنا</a>
+    </div>
+  </div>
+
+  <script>
+    // دعم الرابط المحلي والإنتاجي تلقائياً
+    const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:3001/api'
+      : (window.location.origin + '/api');
+    let currentEs = null;
+
+    const STATUS_CONFIG = {
+      pending: {
+        label:    'جارِ الانتظار',
+        badge:    'badge-pending',
+        icon:     '⏳',
+        timeIcon: '⏳',
+        steps:    [1, 0, 0, 0],
+        estTime:  '35 - 65 دقيقة (إجمالي متبقي)',
+        desc:     'تم استلام طلبك ومراجعته في الكاشير.. ثوانٍ ويبدأ الشيف بالتحضير 👨‍🍳 (متوسط المراجعة: 1-2 دقيقة)'
+      },
+      preparing: {
+        label:    'قيد التحضير في المطبخ',
+        badge:    'badge-preparing',
+        icon:     '👨‍🍳',
+        timeIcon: '🔥',
+        steps:    [1, 1, 0, 0],
+        estTime:  '35 - 55 دقيقة (المتبقي)',
+        desc:     'طلبك على النار الآن! شيف القيصر يجهّز لك أشهى المأكولات الطازجة 🍲 (متوسط التحضير: 25-45 دقيقة)'
+      },
+      delivering: {
+        label:    'تم التسليم للمندوب وفي الطريق',
+        badge:    'badge-delivering',
+        icon:     '🛵',
+        timeIcon: '🛵',
+        steps:    [1, 1, 1, 0],
+        estTime:  '10 - 20 دقيقة (المتبقي)',
+        desc:     'المندوب استلم وجبتك الساخنة وهو في أسرع طريق لعنوانك الآن 🛵💨 (متوسط التوصيل: 10-20 دقيقة)'
+      },
+      delivered: {
+        label:    'تم تسليم الطلب بنجاح',
+        badge:    'badge-delivered',
+        icon:     '✅',
+        timeIcon: '👑',
+        steps:    [1, 1, 1, 1],
+        estTime:  'تم التوصيل بنجاح',
+        desc:     'شكراً لثقتكم بمطعم القيصر! نتمنى لكم وجبة شهية ويوم رائع ❤️'
+      },
+      ready: {
+        label:    'تم التسليم للمندوب وفي الطريق',
+        badge:    'badge-delivering',
+        icon:     '🛵',
+        timeIcon: '🛵',
+        steps:    [1, 1, 1, 0],
+        estTime:  '10 - 20 دقيقة (المتبقي)',
+        desc:     'المندوب استلم وجبتك الساخنة وهو في طريقه إليك الآن 🛵'
+      }
+    };
+
+    // ── نوتيفيكاشن: طلب إذن عند أول تفاعل ────────────────────────────────────
+    function requestNotifyPermission() {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
+    function notify(title, body, emoji = '👑') {
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      try {
+        const icon = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>" + emoji + "</text></svg>";
+        const n = new Notification(emoji + ' ' + title, {
+          body,
+          icon,
+          dir: 'rtl',
+          lang: 'ar',
+          requireInteraction: false,
+        });
+        setTimeout(() => n.close(), 7000);
+        n.onclick = () => { window.focus(); n.close(); };
+      } catch {}
+    }
+
+    function renderStatus(status) {
+      const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+
+      // Badge
+      const badge = document.getElementById('status-badge');
+      badge.className = `status-badge ${cfg.badge}`;
+      badge.innerHTML = `<span>${cfg.icon}</span><span>${cfg.label}</span>`;
+
+      // Time Box
+      document.getElementById('time-icon').textContent = cfg.timeIcon || '⏱️';
+      document.getElementById('time-val').textContent  = cfg.estTime  || '';
+      document.getElementById('time-desc').textContent = cfg.desc     || '';
+
+      // Stepper
+      const steps = ['step-pending', 'step-preparing', 'step-delivering', 'step-delivered'];
+      const lines = ['line-1', 'line-2', 'line-3'];
+
+      let lastActive = -1;
+      cfg.steps.forEach((v, i) => { if (v) lastActive = i; });
+
+      steps.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (cfg.steps[i]) {
+          el.className = `step ${i === lastActive ? 'active' : 'done'}`;
+        } else {
+          el.className = 'step';
+        }
+      });
+
+      lines.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.className = `step-line ${cfg.steps[i+1] ? 'done' : ''}`;
+      });
+    }
+
+    async function startTracking() {
+      const input   = document.getElementById('order-id-input');
+      const orderId = parseInt(input.value);
+      const errEl   = document.getElementById('error-msg');
+      const btn     = document.getElementById('track-btn');
+
+      errEl.style.display = 'none';
+      if (!orderId || orderId < 1) {
+        errEl.textContent    = 'أدخل رقم طلب صحيح';
+        errEl.style.display  = 'block';
+        return;
+      }
+
+      btn.disabled    = true;
+      btn.textContent = '⏳ جاري البحث...';
+
+      // إغلاق SSE القديم
+      if (currentEs) { currentEs.close(); currentEs = null; }
+
+      try {
+        // جلب بيانات الطلب أولاً
+        const res  = await fetch(`${API}/orders/${orderId}`);
+        const json = await res.json();
+
+        if (!json.success) {
+          errEl.textContent   = json.message || 'الطلب غير موجود';
+          errEl.style.display = 'block';
+          return;
+        }
+
+        const order = json.data;
+
+        // عرض بيانات الطلب
+        document.getElementById('display-id').textContent    = `#${String(order.id).padStart(4,'0')}`;
+        document.getElementById('display-name').textContent  = order.customer_name;
+        document.getElementById('display-total').textContent = `${order.total_amount} ج.م`;
+        renderStatus(order.status);
+
+        const card = document.getElementById('status-card');
+        card.style.display = 'block';
+        card.classList.remove('fade-in');
+        void card.offsetWidth;
+        card.classList.add('fade-in');
+
+        // ── SSE: اشتراك في التحديثات الفورية ────────────────────────────────
+        const es = new EventSource(`${API}/orders/stream?orderId=${orderId}`);
+        currentEs = es;
+
+        es.onmessage = (e) => {
+          const payload = JSON.parse(e.data);
+          if (payload.type === 'status_update' && payload.order.id === orderId) {
+            const oldStatus = document.getElementById('status-badge')?.dataset?.status;
+            renderStatus(payload.order.status);
+            document.getElementById('status-badge').dataset.status = payload.order.status;
+            document.getElementById('sse-label').textContent =
+              `آخر تحديث: ${new Date().toLocaleTimeString('ar-SA')}`;
+            // 🔔 نوتيفيكاشن تغيير الحالة
+            const cfg = STATUS_CONFIG[payload.order.status] || STATUS_CONFIG.pending;
+            const orderNum = `#${String(orderId).padStart(4, '0')}`;
+            notify(
+              `تحديث طلبك ${orderNum}`,
+              cfg.label + '\n' + (cfg.desc || ''),
+              cfg.icon || '🔔'
+            );
+          }
+          if (payload.type === 'init') {
+            renderStatus(payload.order.status);
+          }
+        };
+
+        es.onerror = () => {
+          document.getElementById('sse-label').textContent = 'انقطع الاتصال — يحاول إعادة الاتصال...';
+        };
+
+      } catch (err) {
+        errEl.textContent   = 'تعذّر الاتصال بالخادم. تأكد من تشغيل السيرفر.';
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = 'تتبع';
+      }
+    }
+
+    // طلب إذن الإشعارات عند أول تحميل الصفحة
+    requestNotifyPermission();
+
+    // السماح بالضغط على Enter
+    document.getElementById('order-id-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') startTracking();
+    });
+
+    // ملء رقم الطلب تلقائياً إذا جاء من صفحة الطلب
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlOrderId = urlParams.get('orderId');
+    if (urlOrderId) {
+      document.getElementById('order-id-input').value = urlOrderId;
+      startTracking();
+    }
+  </script>
+</body>
+</html>

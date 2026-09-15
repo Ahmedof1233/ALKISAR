@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/admin/:match*",
+      "destination": "/frontend/admin/dist/:match*"
+    },
+    {
+      "source": "/admin",
+      "destination": "/frontend/admin/dist/index.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/frontend/customer/$1"
+    }
+  ]
+}
