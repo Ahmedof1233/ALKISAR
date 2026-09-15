@@ -49,7 +49,7 @@ function Sidebar({ active, onNavigate, ordersCount, onLogout }) {
 
         <div className="pt-4 mt-4 border-t border-white/5">
           <a
-            href="/"
+            href={import.meta.env.VITE_CUSTOMER_URL || '../customer/index.html'}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl bg-gradient-to-r from-brand-500/20 to-brand-700/20 text-brand-400 border border-brand-500/30 hover:from-brand-500 hover:to-brand-600 hover:text-white transition-all shadow-lg text-right w-full block"

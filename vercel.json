@@ -1,17 +1,11 @@
 {
   "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "frontend/admin/dist",
   "rewrites": [
-    {
-      "source": "/admin/:match*",
-      "destination": "/frontend/admin/dist/:match*"
-    },
-    {
-      "source": "/admin",
-      "destination": "/frontend/admin/dist/index.html"
-    },
-    {
-      "source": "/track",
-      "destination": "/frontend/customer/index.html"
-    }
+    { "source": "/customer/order", "destination": "/customer/order.html" },
+    { "source": "/customer",       "destination": "/customer/index.html" },
+    { "source": "/admin/(.*)",     "destination": "/index.html" },
+    { "source": "/admin",          "destination": "/index.html" }
   ]
 }
