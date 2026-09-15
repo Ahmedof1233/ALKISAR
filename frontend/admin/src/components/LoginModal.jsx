@@ -51,10 +51,6 @@ export default function LoginModal({ onLogin }) {
             دخول 🔐
           </button>
         </form>
-
-        <p className="text-gray-600 text-xs mt-6">
-          كلمة المرور الافتراضية: <code className="text-brand-400">qaysar2026</code>
-        </p>
       </div>
     </div>
   );
