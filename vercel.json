@@ -2,6 +2,14 @@
   "version": 2,
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/frontend/customer/order.html"
+    },
+    {
+      "source": "/track",
+      "destination": "/frontend/customer/index.html"
+    },
+    {
       "source": "/admin/:match*",
       "destination": "/frontend/admin/dist/:match*"
     },

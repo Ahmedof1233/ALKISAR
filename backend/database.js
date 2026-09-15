@@ -1,18 +1,47 @@
-const initSqlJs = require('sql.js');
+require('dotenv').config();
 const path = require('path');
 const fs   = require('fs');
 
-const DB_PATH = path.join(__dirname, 'qaysar.db');
-let db = null;
+let isTiDB = false;
+let tidbPool = null;
+let sqliteDb = null;
+let lastInsertedId = null;
 
-function saveDb() {
-  if (!db) return;
-  const data = db.export();
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
+const DB_PATH = path.join(__dirname, 'qaysar.db');
+
+if (process.env.TIDB_HOST && process.env.TIDB_USER) {
+  isTiDB = true;
 }
 
-function query(sql, params = []) {
-  const stmt = db.prepare(sql);
+// ── تهيئة TiDB (MySQL Pool) ───────────────────────────────────────────────────
+function initTiDB() {
+  const mysql = require('mysql2/promise');
+  const config = {
+    host: process.env.TIDB_HOST,
+    port: parseInt(process.env.TIDB_PORT) || 4000,
+    user: process.env.TIDB_USER,
+    password: process.env.TIDB_PASSWORD,
+    database: process.env.TIDB_DATABASE || 'test',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    ssl: process.env.TIDB_ENABLE_SSL === 'false' ? false : {
+      minVersion: 'TLSv1.2',
+      rejectUnauthorized: true
+    }
+  };
+
+  tidbPool = mysql.createPool(config);
+  console.log(`🌐 جاري الاتصال بقاعدة بيانات TiDB Cloud على ${process.env.TIDB_HOST}...`);
+}
+
+// ── استعلامات موحدة متوافقة مع Async و Sync ──────────────────────────────────
+async function query(sql, params = []) {
+  if (isTiDB) {
+    const [rows] = await tidbPool.query(sql, params);
+    return rows;
+  }
+  const stmt = sqliteDb.prepare(sql);
   stmt.bind(params);
   const rows = [];
   while (stmt.step()) rows.push(stmt.getAsObject());
@@ -20,33 +49,82 @@ function query(sql, params = []) {
   return rows;
 }
 
-function run(sql, params = []) {
-  db.run(sql, params);
+async function run(sql, params = []) {
+  if (isTiDB) {
+    const [result] = await tidbPool.query(sql, params);
+    if (result && result.insertId) {
+      lastInsertedId = result.insertId;
+    }
+    return result;
+  }
+  sqliteDb.run(sql, params);
   saveDb();
 }
 
-function get(sql, params = []) {
-  const rows = query(sql, params);
+async function get(sql, params = []) {
+  const rows = await query(sql, params);
   return rows[0] || null;
 }
 
 function getLastId(table = 'orders') {
-  try {
-    const res = db.exec('SELECT last_insert_rowid() as id');
-    if (res && res[0] && res[0].values && res[0].values[0] && res[0].values[0][0]) {
-      const id = res[0].values[0][0];
-      if (id > 0) return id;
-    }
-  } catch {}
-  try {
-    const row = get(`SELECT MAX(id) as id FROM ${table}`);
-    return row ? row.id : null;
-  } catch {}
+  if (lastInsertedId) {
+    const id = lastInsertedId;
+    lastInsertedId = null;
+    return id;
+  }
+  if (!isTiDB && sqliteDb) {
+    try {
+      const res = sqliteDb.exec('SELECT last_insert_rowid() as id');
+      if (res && res[0] && res[0].values && res[0].values[0] && res[0].values[0][0]) {
+        const id = res[0].values[0][0];
+        if (id > 0) return id;
+      }
+    } catch {}
+    try {
+      const stmt = sqliteDb.prepare(`SELECT MAX(id) as id FROM ${table}`);
+      stmt.step();
+      const row = stmt.getAsObject();
+      stmt.free();
+      return row.id;
+    } catch {}
+  }
   return null;
 }
 
+function saveDb() {
+  if (!sqliteDb || isTiDB) return;
+  const data = sqliteDb.export();
+  fs.writeFileSync(DB_PATH, Buffer.from(data));
+}
+
 // ── Schema ────────────────────────────────────────────────────────────────────
-const SCHEMA = `
+const TIDB_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS items (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    name        VARCHAR(255) NOT NULL,
+    description TEXT,
+    price       DECIMAL(10,2) NOT NULL,
+    category    VARCHAR(100) DEFAULT 'عام',
+    available   TINYINT DEFAULT 1,
+    image_url   TEXT,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS orders (
+    id               INT AUTO_INCREMENT PRIMARY KEY,
+    customer_name    VARCHAR(255) NOT NULL,
+    customer_phone   VARCHAR(50) DEFAULT '',
+    customer_address TEXT,
+    items_json       LONGTEXT NOT NULL,
+    total_amount     DECIMAL(10,2) NOT NULL,
+    status           VARCHAR(50) DEFAULT 'pending',
+    notes            TEXT,
+    created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  );
+`;
+
+const SQLITE_SCHEMA = `
   CREATE TABLE IF NOT EXISTS items (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT    NOT NULL,
@@ -72,20 +150,10 @@ const SCHEMA = `
   );
 `;
 
-// ── Migration: إضافة الأعمدة الجديدة إن لم تكن موجودة ──────────────────────
-function migrate() {
-  const safeAdd = (table, col, def) => {
-    try { db.run(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`); }
-    catch { /* العمود موجود مسبقاً */ }
-  };
-  safeAdd('items',  'image_url',        "TEXT DEFAULT ''");
-  safeAdd('orders', 'customer_address', "TEXT DEFAULT ''");
-}
+async function seedTiDB() {
+  const [rows] = await tidbPool.query('SELECT COUNT(*) as c FROM items');
+  if (rows[0].c > 0) return;
 
-// ── Seed ─────────────────────────────────────────────────────────────────────
-function seedItems() {
-  const count = get('SELECT COUNT(*) as c FROM items').c;
-  if (count > 0) return;
   const data = [
     ['كبسة لحم',   'أرز بسمتي مع لحم ضأن طازج وتوابل',  45, 'رئيسي',    1],
     ['مندي دجاج',  'دجاج مدخن مع الأرز الأصفر',           38, 'رئيسي',    1],
@@ -94,44 +162,44 @@ function seedItems() {
     ['عصير مانجو', 'عصير مانجو طبيعي طازج',                10, 'مشروبات',  1],
     ['كنافة',      'كنافة بالجبن والقطر',                  18, 'حلويات',   1],
   ];
-  data.forEach(([n,d,p,c,a]) =>
-    db.run('INSERT INTO items (name,description,price,category,available) VALUES(?,?,?,?,?)', [n,d,p,c,a])
-  );
-  saveDb();
-  console.log('✅ بيانات الأصناف جاهزة');
+  for (const item of data) {
+    await tidbPool.query('INSERT INTO items (name,description,price,category,available) VALUES (?,?,?,?,?)', item);
+  }
+  console.log('✅ TiDB: تم تجهيز قائمة الأصناف بنجاح');
 }
 
-function seedOrders() {
-  const count = get('SELECT COUNT(*) as c FROM orders').c;
-  if (count > 0) return;
-  const rows = [
-    ['أحمد محمد',   '0501234567', 'شارع النيل، الدور الثاني',  JSON.stringify([{id:1,name:'كبسة لحم',qty:2,price:45}]),                                                        90, 'pending',   'بدون بصل'],
-    ['سارة العمري', '0557654321', 'ميدان التحرير، برج الياسمين', JSON.stringify([{id:2,name:'مندي دجاج',qty:1,price:38},{id:3,name:'سلطة فتوش',qty:1,price:15}]),             53, 'preparing', ''],
-    ['خالد السعيد', '0512345678', 'حي الزمالك، شارع 26 يوليو',  JSON.stringify([{id:6,name:'كنافة',qty:3,price:18}]),                                                          54, 'ready',     'توصيل للطابق الثاني'],
-  ];
-  rows.forEach(([n,ph,addr,items,total,status,notes]) =>
-    db.run('INSERT INTO orders (customer_name,customer_phone,customer_address,items_json,total_amount,status,notes) VALUES(?,?,?,?,?,?,?)',
-      [n,ph,addr,items,total,status,notes])
-  );
-  saveDb();
-  console.log('✅ بيانات الطلبات جاهزة');
-}
-
-// ── Init ─────────────────────────────────────────────────────────────────────
 async function initDb() {
+  if (isTiDB) {
+    initTiDB();
+    const queries = TIDB_SCHEMA.split(';').filter(q => q.trim().length > 0);
+    for (const q of queries) {
+      await tidbPool.query(q);
+    }
+    await seedTiDB();
+    console.log('🚀 متصل بقاعدة بيانات TiDB Cloud (MySQL) بنجاح');
+    return tidbPool;
+  }
+
+  const initSqlJs = require('sql.js');
   const SQL = await initSqlJs();
   if (fs.existsSync(DB_PATH)) {
-    db = new SQL.Database(fs.readFileSync(DB_PATH));
-    console.log('📂 تم تحميل قاعدة البيانات');
+    sqliteDb = new SQL.Database(fs.readFileSync(DB_PATH));
+    console.log('📂 تم تحميل قاعدة البيانات المحلية SQLite');
   } else {
-    db = new SQL.Database();
-    console.log('🆕 قاعدة بيانات جديدة');
+    sqliteDb = new SQL.Database();
+    console.log('🆕 إنشاء قاعدة بيانات محلي SQLite جديدة');
   }
-  db.run(SCHEMA);
-  migrate();
-  seedItems();
-  seedOrders();
-  return db;
+  sqliteDb.run(SQLITE_SCHEMA);
+  return sqliteDb;
 }
 
-module.exports = { initDb, query, run, get, getLastId, saveDb };
+module.exports = {
+  initDb,
+  query,
+  run,
+  get,
+  getLastId,
+  saveDb,
+  isTiDB: () => isTiDB,
+  getPool: () => tidbPool
+};

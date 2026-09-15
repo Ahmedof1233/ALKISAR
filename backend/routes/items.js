@@ -27,9 +27,9 @@ const upload = multer({
 });
 
 // GET /api/items
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const items = db.query('SELECT * FROM items ORDER BY category, name');
+    const items = await db.query('SELECT * FROM items ORDER BY category, name');
     res.json({ success: true, data: items });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -37,9 +37,9 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/items/:id
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const item = db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
+    const item = await db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
     if (!item) return res.status(404).json({ success: false, message: 'الصنف غير موجود' });
     res.json({ success: true, data: item });
   } catch (err) {
@@ -48,17 +48,17 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/items
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { name, description = '', price, category = 'عام', available = 1, image_url = '' } = req.body;
     if (!name || price === undefined)
       return res.status(400).json({ success: false, message: 'الاسم والسعر مطلوبان' });
-    db.run(
+    await db.run(
       'INSERT INTO items (name,description,price,category,available,image_url) VALUES(?,?,?,?,?,?)',
       [name, description, price, category, available, image_url]
     );
-    const id   = db.getLastId();
-    const item = db.get('SELECT * FROM items WHERE id = ?', [id]);
+    const id   = db.getLastId('items');
+    const item = await db.get('SELECT * FROM items WHERE id = ?', [id]);
     res.status(201).json({ success: true, data: item });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -66,12 +66,12 @@ router.post('/', (req, res) => {
 });
 
 // PUT /api/items/:id
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
-    const existing = db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
+    const existing = await db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
     if (!existing) return res.status(404).json({ success: false, message: 'الصنف غير موجود' });
     const { name, description, price, category, available, image_url } = req.body;
-    db.run(
+    await db.run(
       'UPDATE items SET name=?,description=?,price=?,category=?,available=?,image_url=? WHERE id=?',
       [
         name        ?? existing.name,
@@ -83,7 +83,7 @@ router.put('/:id', (req, res) => {
         req.params.id,
       ]
     );
-    const updated = db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
+    const updated = await db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
     res.json({ success: true, data: updated });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -91,9 +91,9 @@ router.put('/:id', (req, res) => {
 });
 
 // POST /api/items/:id/image — رفع صورة
-router.post('/:id/image', upload.single('image'), (req, res) => {
+router.post('/:id/image', upload.single('image'), async (req, res) => {
   try {
-    const item = db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
+    const item = await db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
     if (!item) return res.status(404).json({ success: false, message: 'الصنف غير موجود' });
     if (!req.file)  return res.status(400).json({ success: false, message: 'لم يُرفع أي ملف' });
 
@@ -104,8 +104,8 @@ router.post('/:id/image', upload.single('image'), (req, res) => {
     }
 
     const image_url = `/uploads/${req.file.filename}`;
-    db.run('UPDATE items SET image_url = ? WHERE id = ?', [image_url, req.params.id]);
-    const updated = db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
+    await db.run('UPDATE items SET image_url = ? WHERE id = ?', [image_url, req.params.id]);
+    const updated = await db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
     res.json({ success: true, data: updated });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -113,15 +113,15 @@ router.post('/:id/image', upload.single('image'), (req, res) => {
 });
 
 // DELETE /api/items/:id/image — حذف الصورة
-router.delete('/:id/image', (req, res) => {
+router.delete('/:id/image', async (req, res) => {
   try {
-    const item = db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
+    const item = await db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
     if (!item) return res.status(404).json({ success: false, message: 'الصنف غير موجود' });
     if (item.image_url) {
       const imgPath = path.join(__dirname, '..', item.image_url.replace('/uploads/', 'uploads/'));
       if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
     }
-    db.run("UPDATE items SET image_url = '' WHERE id = ?", [req.params.id]);
+    await db.run("UPDATE items SET image_url = '' WHERE id = ?", [req.params.id]);
     res.json({ success: true, message: 'تم حذف الصورة' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -129,11 +129,11 @@ router.delete('/:id/image', (req, res) => {
 });
 
 // DELETE /api/items/:id
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const existing = db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
+    const existing = await db.get('SELECT * FROM items WHERE id = ?', [req.params.id]);
     if (!existing) return res.status(404).json({ success: false, message: 'الصنف غير موجود' });
-    db.run('DELETE FROM items WHERE id = ?', [req.params.id]);
+    await db.run('DELETE FROM items WHERE id = ?', [req.params.id]);
     res.json({ success: true, message: 'تم حذف الصنف' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

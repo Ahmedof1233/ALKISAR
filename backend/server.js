@@ -13,50 +13,53 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Bootstrap: تهيئة DB أولاً ثم تشغيل السيرفر ───────────────────────────────
 initDb().then((dbInstance) => {
-  // تمرير instance للـ routes عبر module cache
-  const dbModule  = require('./database');
-  // Override helpers ليستخدموا الـ instance الفعلية
-  Object.assign(dbModule, {
-    query: (sql, params = []) => {
-      const stmt = dbInstance.prepare(sql);
-      stmt.bind(params);
-      const rows = [];
-      while (stmt.step()) rows.push(stmt.getAsObject());
-      stmt.free();
-      return rows;
-    },
-    run: (sql, params = []) => {
-      dbInstance.run(sql, params);
-      const fs   = require('fs');
-      const path = require('path');
-      const data = dbInstance.export();
-      fs.writeFileSync(path.join(__dirname, 'qaysar.db'), Buffer.from(data));
-    },
-    get: (sql, params = []) => {
-      const stmt = dbInstance.prepare(sql);
-      stmt.bind(params);
-      const row = stmt.step() ? stmt.getAsObject() : null;
-      stmt.free();
-      return row;
-    },
-    getLastId: (table = 'orders') => {
-      try {
-        const res = dbInstance.exec('SELECT last_insert_rowid() as id');
-        if (res && res[0] && res[0].values && res[0].values[0] && res[0].values[0][0]) {
-          const id = res[0].values[0][0];
-          if (id > 0) return id;
-        }
-      } catch {}
-      try {
-        const stmt = dbInstance.prepare(`SELECT MAX(id) as id FROM ${table}`);
-        stmt.step();
-        const row = stmt.getAsObject();
+  const dbModule = require('./database');
+  const isTiDB   = dbModule.isTiDB();
+
+  if (!isTiDB) {
+    // Override helpers لـ SQLite
+    Object.assign(dbModule, {
+      query: (sql, params = []) => {
+        const stmt = dbInstance.prepare(sql);
+        stmt.bind(params);
+        const rows = [];
+        while (stmt.step()) rows.push(stmt.getAsObject());
         stmt.free();
-        return row.id;
-      } catch {}
-      return null;
-    },
-  });
+        return rows;
+      },
+      run: (sql, params = []) => {
+        dbInstance.run(sql, params);
+        const fs   = require('fs');
+        const path = require('path');
+        const data = dbInstance.export();
+        fs.writeFileSync(path.join(__dirname, 'qaysar.db'), Buffer.from(data));
+      },
+      get: (sql, params = []) => {
+        const stmt = dbInstance.prepare(sql);
+        stmt.bind(params);
+        const row = stmt.step() ? stmt.getAsObject() : null;
+        stmt.free();
+        return row;
+      },
+      getLastId: (table = 'orders') => {
+        try {
+          const res = dbInstance.exec('SELECT last_insert_rowid() as id');
+          if (res && res[0] && res[0].values && res[0].values[0] && res[0].values[0][0]) {
+            const id = res[0].values[0][0];
+            if (id > 0) return id;
+          }
+        } catch {}
+        try {
+          const stmt = dbInstance.prepare(`SELECT MAX(id) as id FROM ${table}`);
+          stmt.step();
+          const row = stmt.getAsObject();
+          stmt.free();
+          return row.id;
+        } catch {}
+        return null;
+      },
+    });
+  }
 
   const itemsRouter  = require('./routes/items');
   const ordersRouter = require('./routes/orders');

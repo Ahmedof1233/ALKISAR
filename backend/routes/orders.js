@@ -19,7 +19,7 @@ function broadcast(payload, targetOrderId = null) {
 
 // ── GET /api/orders/stream  (SSE) ─────────────────────────────────────────────
 // يجب أن يكون قبل /:id لتجنب التعارض
-router.get('/stream', (req, res) => {
+router.get('/stream', async (req, res) => {
   const orderId = req.query.orderId ? parseInt(req.query.orderId) : null;
 
   res.setHeader('Content-Type',                'text/event-stream');
@@ -34,7 +34,7 @@ router.get('/stream', (req, res) => {
   // إرسال الحالة الأولية
   if (orderId) {
     const db = dbModule;
-    const order = db.get(
+    const order = await db.get(
       'SELECT id, status, customer_name FROM orders WHERE id = ?',
       [orderId]
     );
@@ -61,16 +61,16 @@ router.get('/stream', (req, res) => {
 });
 
 // ── GET /api/orders ───────────────────────────────────────────────────────────
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const db = dbModule;
     const { status } = req.query;
     let orders;
 
     if (status) {
-      orders = db.query('SELECT * FROM orders WHERE status = ? ORDER BY created_at DESC', [status]);
+      orders = await db.query('SELECT * FROM orders WHERE status = ? ORDER BY created_at DESC', [status]);
     } else {
-      orders = db.query('SELECT * FROM orders ORDER BY created_at DESC');
+      orders = await db.query('SELECT * FROM orders ORDER BY created_at DESC');
     }
 
     const parsed = orders.map(o => ({
@@ -84,10 +84,10 @@ router.get('/', (req, res) => {
 });
 
 // ── GET /api/orders/:id ───────────────────────────────────────────────────────
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const db = dbModule;
-    const order = db.get('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+    const order = await db.get('SELECT * FROM orders WHERE id = ?', [req.params.id]);
     if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
     const parsedItems = typeof order.items_json === 'string'
       ? JSON.parse(order.items_json || '[]')
@@ -99,7 +99,7 @@ router.get('/:id', (req, res) => {
 });
 
 // ── PATCH /api/orders/:id/status ─────────────────────────────────────────────
-router.patch('/:id/status', (req, res) => {
+router.patch('/:id/status', async (req, res) => {
   try {
     const db = dbModule;
     const { status } = req.body;
@@ -112,15 +112,17 @@ router.patch('/:id/status', (req, res) => {
       });
     }
 
-    const order = db.get('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+    const order = await db.get('SELECT * FROM orders WHERE id = ?', [req.params.id]);
     if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
 
-    db.run(
-      "UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?",
+    // صيغة تحديث تدعم TiDB و SQLite
+    const updateTimeSql = db.isTiDB() ? 'NOW()' : "datetime('now')";
+    await db.run(
+      `UPDATE orders SET status = ?, updated_at = ${updateTimeSql} WHERE id = ?`,
       [status, req.params.id]
     );
 
-    const updated = db.get('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+    const updated = await db.get('SELECT * FROM orders WHERE id = ?', [req.params.id]);
     const parsedItems = typeof updated.items_json === 'string'
       ? JSON.parse(updated.items_json || '[]')
       : (updated.items_json || []);
@@ -150,7 +152,7 @@ router.patch('/:id/status', (req, res) => {
 });
 
 // ── POST /api/orders ──────────────────────────────────────────────────────────
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const db = dbModule;
     const { customer_name, customer_phone = '', customer_address = '', items, total_amount, notes = '' } = req.body;
@@ -159,13 +161,13 @@ router.post('/', (req, res) => {
       return res.status(400).json({ success: false, message: 'البيانات الأساسية مطلوبة' });
     }
 
-    db.run(
+    await db.run(
       'INSERT INTO orders (customer_name, customer_phone, customer_address, items_json, total_amount, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [customer_name, customer_phone, customer_address, JSON.stringify(items), total_amount, notes, 'pending']
     );
 
     const id = db.getLastId('orders');
-    const order = db.get('SELECT * FROM orders WHERE id = ?', [id]);
+    const order = await db.get('SELECT * FROM orders WHERE id = ?', [id]);
 
     if (!order) {
       return res.status(500).json({ success: false, message: 'تعذر استرجاع بيانات الطلب بعد حفظه' });

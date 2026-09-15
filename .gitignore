@@ -1,0 +1,7 @@
+node_modules
+.env
+*.log
+backend/qaysar.db
+frontend/admin/dist
+.DS_Store
+Thumbs.db
