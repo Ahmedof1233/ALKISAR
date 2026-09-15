@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
+  "buildCommand": "node scripts/build.js",
   "outputDirectory": "frontend/admin/dist",
   "rewrites": [
     { "source": "/customer/order", "destination": "/customer/order.html" },
