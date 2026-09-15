@@ -269,6 +269,49 @@
       transition: color .2s;
     }
     .new-order-row a:hover { color: white; }
+
+    /* ── MOBILE RESPONSIVE ────────────────────────────────────────────── */
+    @media(max-width:480px){
+      body { padding: 1rem .75rem; justify-content: flex-start; padding-top: 2rem; }
+
+      .logo { margin-bottom: 1.5rem; }
+      .logo-icon { width: 60px; height: 60px; font-size: 1.6rem; border-radius: 16px; }
+      .logo h1  { font-size: 1.3rem; }
+      .logo p   { font-size: .8rem; }
+
+      .card { padding: 1.25rem 1rem; }
+
+      /* Search row — زرار تتبع تحت الـ input */
+      .search-row { flex-direction: column; gap: .6rem; }
+      .btn { width: 100%; justify-content: center; }
+
+      /* Order header */
+      .order-header { flex-direction: column; gap: .5rem; }
+      .order-name  { font-size: 1.05rem; }
+      .order-total { font-size: 1.15rem; }
+
+      /* Stepper */
+      .step-circle { width: 38px; height: 38px; font-size: 1rem; }
+      .step-label  { font-size: .62rem; }
+      .step-time   { font-size: .55rem; padding: 1px 4px; }
+
+      /* Time estimate box */
+      .time-estimate-box { padding: .8rem .9rem; gap: .75rem; }
+      .time-icon  { font-size: 1.6rem; }
+      .time-val   { font-size: 1rem; }
+      .time-desc  { font-size: .75rem; }
+
+      /* Navigation */
+      .nav-link { font-size: .85rem; padding: .45rem .9rem; }
+    }
+
+    @media(max-width:360px){
+      .step-circle { width: 32px; height: 32px; font-size: .85rem; }
+      .step-time   { display: none; }
+      .step-label  { font-size: .58rem; }
+      .card { padding: 1rem .85rem; }
+      body  { padding: .75rem .6rem; }
+    }
   </style>
 </head>
 <body>
