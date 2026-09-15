@@ -46,6 +46,19 @@ function Sidebar({ active, onNavigate, ordersCount, onLogout }) {
             )}
           </button>
         ))}
+
+        <div className="pt-4 mt-4 border-t border-white/5">
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl bg-gradient-to-r from-brand-500/20 to-brand-700/20 text-brand-400 border border-brand-500/30 hover:from-brand-500 hover:to-brand-600 hover:text-white transition-all shadow-lg text-right w-full block"
+          >
+            <span className="text-lg">🛒</span>
+            <span className="flex-1">واجهة طلب العميل</span>
+            <span className="text-xs">↗</span>
+          </a>
+        </div>
       </nav>
 
       {/* Footer */}
