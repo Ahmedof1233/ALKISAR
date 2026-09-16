@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { API_BASE, CATEGORIES } from '../constants';
 
-const IMG_BASE = 'http://localhost:3001';
+const IMG_BASE = import.meta.env.VITE_API_BASE
+  ? import.meta.env.VITE_API_BASE.replace(/\/api\/?$/, '')
+  : (typeof window !== 'undefined' && window.location.port === '5173' ? 'http://localhost:3001' : '');
 
 // ── Modal إضافة / تعديل صنف ───────────────────────────────────────────────
 function ItemModal({ item, onClose, onSave }) {
@@ -71,36 +73,36 @@ function ItemModal({ item, onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="card w-full max-w-md animate-slide-in border-white/10 my-4">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold text-white">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+      <div className="card w-full max-w-md animate-slide-in border-white/10 my-auto max-h-[92vh] overflow-y-auto p-4 sm:p-6 no-scrollbar">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h3 className="text-lg sm:text-xl font-bold text-white">
             {item ? '✏️ تعديل الصنف' : '➕ إضافة صنف جديد'}
           </h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-2xl transition-colors">×</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl transition-colors p-1 leading-none">×</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
           {/* صورة الصنف */}
           <div>
-            <label className="block text-sm text-gray-400 mb-1.5">صورة الصنف</label>
+            <label className="block text-xs sm:text-sm text-gray-400 mb-1">صورة الصنف</label>
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="relative w-full h-36 rounded-xl border-2 border-dashed border-white/10 hover:border-brand-500/40
+              className="relative w-full h-32 sm:h-36 rounded-xl border-2 border-dashed border-white/10 hover:border-brand-500/40
                          flex items-center justify-center cursor-pointer overflow-hidden transition-colors group bg-dark-700"
             >
               {imagePreview ? (
                 <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
               ) : (
-                <div className="flex flex-col items-center gap-2 text-gray-500 group-hover:text-gray-400">
-                  <span className="text-3xl">🖼️</span>
-                  <span className="text-sm">اضغط لرفع صورة</span>
-                  <span className="text-xs">PNG, JPG, WebP — حجم أقصى 5MB</span>
+                <div className="flex flex-col items-center gap-1.5 text-gray-500 group-hover:text-gray-400">
+                  <span className="text-2xl sm:text-3xl">🖼️</span>
+                  <span className="text-xs sm:text-sm font-medium">اضغط لرفع صورة</span>
+                  <span className="text-[11px]">PNG, JPG, WebP — حجم أقصى 5MB</span>
                 </div>
               )}
               {imagePreview && (
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                  <span className="text-white text-sm font-bold">🖼️ تغيير الصورة</span>
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                  <span className="text-white text-xs sm:text-sm font-bold">🖼️ تغيير الصورة</span>
                 </div>
               )}
             </div>
@@ -108,49 +110,49 @@ function ItemModal({ item, onClose, onSave }) {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1.5">اسم الصنف *</label>
+            <label className="block text-xs sm:text-sm text-gray-400 mb-1">اسم الصنف *</label>
             <input id="input-item-name" name="name" value={form.name} onChange={handleChange}
-              className="input-field" placeholder="مثال: كبسة لحم" />
+              className="input-field text-sm" placeholder="مثال: كبسة لحم" />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1.5">الوصف</label>
+            <label className="block text-xs sm:text-sm text-gray-400 mb-1">الوصف</label>
             <textarea id="input-item-desc" name="description" value={form.description} onChange={handleChange}
-              className="input-field resize-none" rows={2} placeholder="وصف مختصر للصنف..." />
+              className="input-field resize-none text-sm" rows={2} placeholder="وصف مختصر للصنف..." />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-gray-400 mb-1.5">السعر (ج.م) *</label>
+              <label className="block text-xs sm:text-sm text-gray-400 mb-1">السعر (ج.م) *</label>
               <input id="input-item-price" name="price" type="number" min="0" step="0.5"
                 value={form.price} onChange={handleChange}
-                className="input-field" placeholder="0.00" />
+                className="input-field text-sm" placeholder="0.00" />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1.5">التصنيف</label>
+              <label className="block text-xs sm:text-sm text-gray-400 mb-1">التصنيف</label>
               <select id="select-item-category" name="category" value={form.category} onChange={handleChange}
-                className="input-field">
+                className="input-field text-sm">
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 bg-dark-700 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-3 bg-dark-700/60 rounded-xl px-4 py-2.5">
             <input id="check-item-available" type="checkbox" name="available"
               checked={form.available === 1} onChange={handleChange}
-              className="w-4 h-4 accent-brand-500" />
-            <label htmlFor="check-item-available" className="text-gray-300 text-sm cursor-pointer">
+              className="w-4 h-4 accent-brand-500 cursor-pointer" />
+            <label htmlFor="check-item-available" className="text-gray-300 text-xs sm:text-sm cursor-pointer select-none">
               الصنف متاح للطلب
             </label>
           </div>
 
-          {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{error}</p>}
+          {error && <p className="text-red-400 text-xs sm:text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{error}</p>}
 
-          <div className="flex gap-3 pt-2">
-            <button id="btn-save-item" type="submit" disabled={saving || uploading} className="flex-1 btn-primary disabled:opacity-50">
-              {uploading ? '⬆️ جاري رفع الصورة...' : saving ? '⏳ جاري الحفظ...' : item ? '💾 حفظ التعديلات' : '➕ إضافة الصنف'}
+          <div className="flex gap-2 sm:gap-3 pt-2">
+            <button id="btn-save-item" type="submit" disabled={saving || uploading} className="flex-1 btn-primary text-xs sm:text-sm py-2 sm:py-2.5 disabled:opacity-50">
+              {uploading ? '⬆️ جاري الرفع...' : saving ? '⏳ جاري الحفظ...' : item ? '💾 حفظ التعديلات' : '➕ إضافة الصنف'}
             </button>
-            <button type="button" onClick={onClose} className="btn-ghost">إلغاء</button>
+            <button type="button" onClick={onClose} className="btn-ghost text-xs sm:text-sm px-4">إلغاء</button>
           </div>
         </form>
       </div>
@@ -173,17 +175,17 @@ function ItemCard({ item, onEdit, onDelete }) {
     }
   };
 
-  const imgSrc = item.image_url ? `http://localhost:3001${item.image_url}` : null;
+  const imgSrc = item.image_url ? `${IMG_BASE}${item.image_url}` : null;
 
   return (
     <div className={`card group hover:border-white/10 transition-all duration-300 overflow-hidden p-0 flex flex-col justify-between ${!item.available ? 'opacity-60' : ''}`}>
       <div>
         {/* صورة الصنف */}
         {imgSrc ? (
-          <div className="relative h-40 overflow-hidden bg-dark-700">
+          <div className="relative h-36 sm:h-40 overflow-hidden bg-dark-700">
             <img src={imgSrc} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
             <div className="absolute top-2 right-2">
-              <span className="text-xs bg-dark-800/80 backdrop-blur-sm text-gray-300 px-2.5 py-1 rounded-lg border border-white/10">{item.category}</span>
+              <span className="text-[11px] sm:text-xs bg-dark-800/80 backdrop-blur-sm text-gray-300 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg border border-white/10">{item.category}</span>
             </div>
           </div>
         ) : (
@@ -192,22 +194,22 @@ function ItemCard({ item, onEdit, onDelete }) {
           </div>
         )}
 
-        <div className="p-4 pb-2">
-          <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="p-3.5 sm:p-4 pb-2">
+          <div className="flex items-start justify-between gap-2 mb-1.5">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-1.5 mb-1">
                 {!imgSrc && (
-                  <span className="text-xs bg-dark-600 text-gray-400 px-2 py-0.5 rounded-lg">{item.category}</span>
+                  <span className="text-[11px] bg-dark-600 text-gray-400 px-2 py-0.5 rounded-lg">{item.category}</span>
                 )}
                 {!item.available && (
-                  <span className="text-xs bg-red-500/10 text-red-400 px-2 py-0.5 rounded-lg border border-red-500/20">
+                  <span className="text-[11px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded-lg border border-red-500/20">
                     غير متاح
                   </span>
                 )}
               </div>
-              <h4 className="font-bold text-white text-base truncate">{item.name}</h4>
+              <h4 className="font-bold text-white text-sm sm:text-base truncate">{item.name}</h4>
             </div>
-            <div className="text-brand-400 font-bold text-lg whitespace-nowrap">
+            <div className="text-brand-400 font-bold text-base sm:text-lg whitespace-nowrap">
               {item.price} ج.م
             </div>
           </div>
@@ -221,12 +223,12 @@ function ItemCard({ item, onEdit, onDelete }) {
       </div>
 
       {/* Actions */}
-      <div className="p-4 pt-0">
-        <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+      <div className="p-3.5 sm:p-4 pt-0">
+        <div className="flex items-center gap-2 pt-2.5 border-t border-white/5">
           <button
             id={`btn-edit-item-${item.id}`}
             onClick={() => onEdit(item)}
-            className="flex-1 btn-ghost text-sm py-1.5 flex items-center justify-center gap-1.5"
+            className="flex-1 btn-ghost text-xs sm:text-sm py-1.5 flex items-center justify-center gap-1.5"
           >
             <span>✏️</span>
             <span>تعديل</span>
@@ -235,7 +237,7 @@ function ItemCard({ item, onEdit, onDelete }) {
             id={`btn-delete-item-${item.id}`}
             onClick={handleDelete}
             disabled={deleting}
-            className="btn-danger text-sm py-1.5 px-3 disabled:opacity-50"
+            className="btn-danger text-xs sm:text-sm py-1.5 px-3 disabled:opacity-50 shrink-0"
             title="حذف الصنف"
           >
             {deleting ? '⏳' : '🗑️'}
@@ -298,35 +300,36 @@ export default function MenuPanel() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-row items-center justify-between gap-3 mb-4 sm:mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-white">قائمة الأصناف</h2>
-          <p className="text-gray-500 text-sm mt-1">{items.length} صنف مسجّل</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-white">قائمة الأصناف</h2>
+          <p className="text-gray-500 text-xs sm:text-sm mt-0.5">{items.length} صنف مسجّل</p>
         </div>
-        <button id="btn-add-item" onClick={openAdd} className="btn-primary flex items-center gap-2">
-          ➕ إضافة صنف
+        <button id="btn-add-item" onClick={openAdd} className="btn-primary flex items-center gap-1.5 text-xs sm:text-sm py-2 px-3 sm:px-4 shrink-0">
+          <span>➕</span>
+          <span>إضافة صنف</span>
         </button>
       </div>
 
       {/* Search + Filter */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 mb-4 sm:mb-6">
         <input
           id="input-search-items"
           type="text"
           placeholder="🔍 ابحث عن صنف..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="input-field sm:max-w-xs"
+          className="input-field text-xs sm:text-sm w-full sm:max-w-xs"
         />
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 max-w-full no-scrollbar">
           {categories.map(cat => (
             <button
               key={cat}
               onClick={() => setCatFilter(cat)}
-              className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-200
+              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 shrink-0 whitespace-nowrap
                 ${catFilter === cat
                   ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30'
-                  : 'bg-dark-700 text-gray-500 hover:text-gray-300 border border-transparent'
+                  : 'bg-dark-700 text-gray-400 hover:text-gray-200 border border-transparent'
                 }`}
             >
               {cat}
@@ -337,18 +340,18 @@ export default function MenuPanel() {
 
       {/* Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-4">
           {[1,2,3,4,5,6].map(i => (
-            <div key={i} className="card h-36 animate-pulse bg-dark-700" />
+            <div key={i} className="card h-36 animate-pulse bg-dark-700/60" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 text-gray-600">
-          <span className="text-6xl mb-4">🍴</span>
-          <p className="text-lg font-medium">لا توجد أصناف</p>
+        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+          <span className="text-5xl sm:text-6xl mb-3">🍴</span>
+          <p className="text-base sm:text-lg font-medium">لا توجد أصناف تطابق البحث</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-4">
           {filtered.map(item => (
             <ItemCard key={item.id} item={item} onEdit={openEdit} onDelete={handleDelete} />
           ))}

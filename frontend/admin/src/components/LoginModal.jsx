@@ -18,7 +18,7 @@ export default function LoginModal({ onLogin }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-      <div className="w-full max-w-md bg-dark-800 border border-white/10 rounded-2xl p-8 shadow-2xl text-center">
+      <div className="w-full max-w-md bg-dark-800 border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl text-center animate-slide-in">
         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-3xl shadow-lg">
           👑
         </div>
