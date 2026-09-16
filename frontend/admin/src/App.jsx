@@ -160,7 +160,7 @@ export default function App() {
           preparing:  orders.filter(o => o.status === 'preparing').length,
           delivering: orders.filter(o => o.status === 'delivering' || o.status === 'ready').length,
           delivered:  orders.filter(o => o.status === 'delivered').length,
-          revenue:    orders.reduce((sum, o) => sum + (o.total_amount || 0), 0),
+          revenue:    orders.reduce((sum, o) => sum + (parseFloat(o.total_amount) || 0), 0),
         });
       }
     } catch {}
