@@ -1,9 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { API_BASE, CATEGORIES } from '../constants';
-
-const IMG_BASE = import.meta.env.VITE_API_BASE
-  ? import.meta.env.VITE_API_BASE.replace(/\/api\/?$/, '')
-  : (typeof window !== 'undefined' && window.location.port === '5173' ? 'http://localhost:3001' : '');
+import { API_BASE, IMG_BASE, CATEGORIES } from '../constants';
 
 // ── Modal إضافة / تعديل صنف ───────────────────────────────────────────────
 function ItemModal({ item, onClose, onSave }) {

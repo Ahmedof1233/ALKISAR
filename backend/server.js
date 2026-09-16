@@ -69,10 +69,13 @@ function ensureInit() {
       const itemsRouter  = require('./routes/items');
       const ordersRouter = require('./routes/orders');
 
+      // تسجيل المسارات الأساسية مع دعم البادئة /api والوصول المباشر
       app.use('/api/items',  itemsRouter);
       app.use('/api/orders', ordersRouter);
+      app.use('/items',      itemsRouter);
+      app.use('/orders',     ordersRouter);
 
-      app.get('/api/health', (req, res) => {
+      app.get(['/api/health', '/health'], (req, res) => {
         res.json({ success: true, message: '🍽️ مطعم القيصر — الخادم يعمل بنجاح', timestamp: new Date() });
       });
 

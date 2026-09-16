@@ -1,9 +1,22 @@
-// رابط الـ Backend API (يدعم البيئات المختلفة تلقائياً وبشكل متوافق مع صفحة العميل)
+// رابط الـ Backend API (يدعم البيئات المختلفة تلقائياً وبشكل متوافق ومضمون)
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-export const API_BASE = isLocal
-  ? 'http://localhost:3001/api'
-  : (import.meta.env.VITE_API_BASE || 'https://alkisar-ge9b.vercel.app/api');
+function resolveApiBase() {
+  let base = (import.meta.env.VITE_API_BASE || '').trim();
+  if (!base) {
+    base = isLocal ? 'http://localhost:3001/api' : 'https://alkisar-ge9b.vercel.app/api';
+  }
+  // إزالة أي سلاش في النهاية
+  base = base.replace(/\/+$/, '');
+  // التأكد من أن المسار ينتهي دائماً بـ /api
+  if (!base.endsWith('/api')) {
+    base = base + '/api';
+  }
+  return base;
+}
+
+export const API_BASE = resolveApiBase();
+export const IMG_BASE = API_BASE.replace(/\/api\/?$/, '');
 
 // خريطة الحالات بالعربية مع متوسط الوقت التقريبي
 export const STATUS_MAP = {
