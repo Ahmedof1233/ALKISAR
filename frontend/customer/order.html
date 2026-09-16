@@ -674,6 +674,11 @@
     renderMenu(cat === 'الكل' ? allItems : allItems.filter(i => i.category === cat));
   }
 
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  }
+
   function renderMenu(items) {
     const grid = document.getElementById('menu-grid');
     if (!items.length) {
@@ -683,18 +688,20 @@
     grid.innerHTML = items.map((item, i) => {
       const imgUrl = item.image_url ? `${IMG_BASE}${item.image_url}` : null;
       const inCart = cart[item.id];
+      const safeName = escapeHtml(item.name);
+      const safeDesc = escapeHtml(item.description);
       return `
         <div class="item-card" style="animation-delay:${i * 0.04}s">
           <div class="item-img">
             ${imgUrl
-              ? `<img src="${imgUrl}" alt="${item.name}" loading="lazy"/>`
+              ? `<img src="${imgUrl}" alt="${safeName}" loading="lazy"/>`
               : `<div class="item-img-placeholder">${CAT_ICONS[item.category] || '🍴'}</div>`
             }
-            <span class="item-cat-badge">${item.category}</span>
+            <span class="item-cat-badge">${escapeHtml(item.category)}</span>
           </div>
           <div class="item-body">
-            <div class="item-name">${item.name}</div>
-            ${item.description ? `<div class="item-desc">${item.description}</div>` : '<div class="item-desc" style="min-height:1.5em"></div>'}
+            <div class="item-name">${safeName}</div>
+            ${safeDesc ? `<div class="item-desc">${safeDesc}</div>` : '<div class="item-desc" style="min-height:1.5em"></div>'}
             <div class="item-footer">
               <span class="item-price">${item.price} ج.م</span>
               <div id="ctrl-${item.id}">
@@ -1107,6 +1114,11 @@
         if (payload.order.status === 'delivered') {
           document.getElementById('cart-sidebar').style.opacity = '1';
           document.getElementById('cart-sidebar').style.pointerEvents = 'auto';
+          // مسح بيانات الطلب من الـ localStorage بعد 10 ثوانٍ من التسليم
+          setTimeout(() => {
+            localStorage.removeItem('qaysar_active_order_id');
+            localStorage.removeItem('qaysar_active_order_data');
+          }, 10000);
         }
 
         document.getElementById('tr-live-label').textContent =
@@ -1183,6 +1195,14 @@
 
       if (json.success && json.data) {
         const order = json.data;
+
+        // إذا تم التسليم فعلاً → امسح البيانات ولا تظهر شاشة التتبع
+        if (order.status === 'delivered') {
+          localStorage.removeItem('qaysar_active_order_id');
+          localStorage.removeItem('qaysar_active_order_data');
+          return;
+        }
+
         activeOrder = order;
 
         // ملء بيانات العميل تلقائياً
@@ -1193,15 +1213,17 @@
         // إبقاء الطلب معروضاً طول ما هو لسة موصلش لمرحلة تم التسليم
         showTrackingSection(order);
 
-        if (order.status !== 'delivered') {
-          document.getElementById('cart-sidebar').style.opacity = '.4';
-          document.getElementById('cart-sidebar').style.pointerEvents = 'none';
-        }
+        document.getElementById('cart-sidebar').style.opacity = '.4';
+        document.getElementById('cart-sidebar').style.pointerEvents = 'none';
       } else {
         localStorage.removeItem('qaysar_active_order_id');
+        localStorage.removeItem('qaysar_active_order_data');
       }
     } catch (e) {
       console.warn('تعذر استرجاع الطلب النشط:', e);
+      // في حالة فشل الاتصال، امسح البيانات المحلية المعطوبة
+      localStorage.removeItem('qaysar_active_order_id');
+      localStorage.removeItem('qaysar_active_order_data');
     }
   }
 

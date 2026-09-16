@@ -438,9 +438,8 @@ export default function OrdersPanel() {
         </div>
         <button
           id="btn-refresh-orders"
-          onClick={fetchOrders}
-          className="btn-ghost flex items-center gap-1.5 text-xs sm:text-sm py-2 px-3 shrink-0"
-        >
+          onClick={() => fetchOrders(false)}
+          className="btn-ghost flex items-center gap-1.5 text-xs sm:text-sm py-2 px-3 shrink-0">
           <span>🔄</span>
           <span>تحديث</span>
         </button>

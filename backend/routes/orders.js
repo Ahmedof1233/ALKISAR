@@ -154,10 +154,9 @@ router.patch('/:id/status', async (req, res) => {
       },
     };
 
-    // بث للعملاء الذين يتابعون هذا الطلب
+    // بث للعملاء الذين يتابعون هذا الطلب + الداشبورد
     broadcast(payload, updated.id);
-    // بث للداشبورد (orderId = null)
-    broadcast({ ...payload, scope: 'dashboard' }, null);
+    broadcast(payload, null); // للداشبورد (بدون فلتر orderId)
 
     res.json({
       success: true,
@@ -256,8 +255,8 @@ router.put('/:id', orderUpdateLimiter, validateUpdateOrder, async (req, res) => 
       type: 'order_updated',
       order: updatedOrder
     };
-    broadcast(payload, updated.id);
-    broadcast({ ...payload, scope: 'dashboard' }, null);
+    broadcast(payload, updated.id); // للعميل صاحب الطلب
+    broadcast(payload, null); // للداشبورد
 
     res.json({
       success: true,
