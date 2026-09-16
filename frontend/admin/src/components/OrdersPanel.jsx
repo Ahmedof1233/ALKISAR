@@ -256,12 +256,38 @@ export default function OrdersPanel() {
     } catch {}
   };
 
+  const knownOrderIdsRef = useRef(new Set());
+  const isInitialLoadRef = useRef(true);
+
   // ── جلب الطلبات ──────────────────────────────────────────────────────────
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (isPolling = false) => {
     try {
       const res  = await fetch(`${API_BASE}/orders`);
       const json = await res.json();
-      if (json.success) setOrders(json.data);
+      if (json.success && Array.isArray(json.data)) {
+        const fetchedOrders = json.data;
+
+        if (isPolling && !isInitialLoadRef.current) {
+          // فحص وصول طلبات جديدة عبر الـ polling
+          const newOrders = fetchedOrders.filter(o => !knownOrderIdsRef.current.has(o.id));
+          if (newOrders.length > 0) {
+            const first = newOrders[0];
+            const orderNum = `#${String(first.id).padStart(4, '0')}`;
+            setLiveMsg(`🆕 ${newOrders.length > 1 ? `${newOrders.length} طلبات جديدة وصلت!` : `طلب جديد من ${first.customer_name} (${orderNum})`}`);
+            setTimeout(() => setLiveMsg(null), 5000);
+            playChime();
+            notify(
+              `طلب جديد ${orderNum} 🆕`,
+              `من: ${first.customer_name}\nالإجمالي: ${first.total_amount} ج.م`,
+              '🆕'
+            );
+          }
+        }
+
+        knownOrderIdsRef.current = new Set(fetchedOrders.map(o => o.id));
+        isInitialLoadRef.current = false;
+        setOrders(fetchedOrders);
+      }
     } catch (e) {
       console.error('خطأ في جلب الطلبات:', e);
     } finally {
@@ -269,77 +295,97 @@ export default function OrdersPanel() {
     }
   }, []);
 
-  // ── SSE: اتصال بالـ stream ────────────────────────────────────────────────
+  // ── SSE + Polling دوري فائق السرعة لضمان التحديث الفوري ──────────────────
   useEffect(() => {
-    fetchOrders();
+    // 1. جلب أولي فوري
+    fetchOrders(false);
 
-    const es = new EventSource(`${API_BASE}/orders/stream`);
-    eventSourceRef.current = es;
+    // 2. فحص دوري كل 3.5 ثانية كضمان أساسي (حاسم في بيئة سيرفرلس مثل Vercel)
+    const pollInterval = setInterval(() => {
+      fetchOrders(true);
+    }, 3500);
 
-    es.onmessage = (e) => {
-      const payload = JSON.parse(e.data);
+    // 3. SSE للبث اللحظي الفوري
+    let es = null;
+    try {
+      es = new EventSource(`${API_BASE}/orders/stream`);
+      eventSourceRef.current = es;
 
-      if (payload.type === 'status_update') {
-        const statusLabel = STATUS_MAP[payload.order.status]?.label || payload.order.status;
-        const orderNum    = `#${String(payload.order.id).padStart(4, '0')}`;
-        // تحديث الطلب في القائمة مباشرة بدون إعادة fetch
-        setOrders(prev =>
-          prev.map(o => o.id === payload.order.id
-            ? { ...o, status: payload.order.status, updated_at: payload.order.updated_at }
-            : o
-          )
-        );
-        // رسالة مؤقتة
-        setLiveMsg(`🔄 تحديث الطلب ${orderNum} — ${statusLabel}`);
-        setTimeout(() => setLiveMsg(null), 4000);
-        // 🔔 نوتيفيكاشن
-        notify(
-          `تحديث طلب ${orderNum}`,
-          `الحالة الجديدة: ${statusLabel}\nالعميل: ${payload.order.customer_name || ''}`,
-          STATUS_MAP[payload.order.status]?.icon || '🔄'
-        );
-      }
+      es.onmessage = (e) => {
+        try {
+          const payload = JSON.parse(e.data);
 
-      if (payload.type === 'new_order') {
-        const orderNum = `#${String(payload.order.id).padStart(4, '0')}`;
-        setOrders(prev => [payload.order, ...prev]);
-        setLiveMsg(`🆕 طلب جديد من ${payload.order.customer_name}`);
-        setTimeout(() => setLiveMsg(null), 5000);
-        
-        // 🔔 رنين صوتي للأوردر الجديد في المطبخ/الكاشير
-        playChime();
+          if (payload.type === 'status_update') {
+            const statusLabel = STATUS_MAP[payload.order.status]?.label || payload.order.status;
+            const orderNum    = `#${String(payload.order.id).padStart(4, '0')}`;
+            setOrders(prev =>
+              prev.map(o => o.id === payload.order.id
+                ? { ...o, status: payload.order.status, updated_at: payload.order.updated_at }
+                : o
+              )
+            );
+            setLiveMsg(`🔄 تحديث الطلب ${orderNum} — ${statusLabel}`);
+            setTimeout(() => setLiveMsg(null), 4000);
+            notify(
+              `تحديث طلب ${orderNum}`,
+              `الحالة الجديدة: ${statusLabel}\nالعميل: ${payload.order.customer_name || ''}`,
+              STATUS_MAP[payload.order.status]?.icon || '🔄'
+            );
+          }
 
-        // 🔔 نوتيفيكاشن المتصفح
-        notify(
-          `طلب جديد ${orderNum} 🆕`,
-          `من: ${payload.order.customer_name}\nالإجمالي: ${payload.order.total_amount} ج.م`,
-          '🆕'
-        );
-      }
+          if (payload.type === 'new_order') {
+            const orderNum = `#${String(payload.order.id).padStart(4, '0')}`;
+            setOrders(prev => {
+              if (prev.some(o => o.id === payload.order.id)) return prev;
+              return [payload.order, ...prev];
+            });
+            knownOrderIdsRef.current.add(payload.order.id);
+            setLiveMsg(`🆕 طلب جديد من ${payload.order.customer_name}`);
+            setTimeout(() => setLiveMsg(null), 5000);
+            
+            // 🔔 رنين صوتي للأوردر الجديد في المطبخ/الكاشير
+            playChime();
 
-      if (payload.type === 'order_updated') {
-        const orderNum = `#${String(payload.order.id).padStart(4, '0')}`;
-        setOrders(prev =>
-          prev.map(o => o.id === payload.order.id ? payload.order : o)
-        );
-        setLiveMsg(`✏️ العميل عدّل محتويات الطلب ${orderNum} (${payload.order.total_amount} ج.م)`);
-        setTimeout(() => setLiveMsg(null), 5000);
+            // 🔔 نوتيفيكاشن المتصفح
+            notify(
+              `طلب جديد ${orderNum} 🆕`,
+              `من: ${payload.order.customer_name}\nالإجمالي: ${payload.order.total_amount} ج.م`,
+              '🆕'
+            );
+          }
 
-        playChime();
+          if (payload.type === 'order_updated') {
+            const orderNum = `#${String(payload.order.id).padStart(4, '0')}`;
+            setOrders(prev =>
+              prev.map(o => o.id === payload.order.id ? payload.order : o)
+            );
+            setLiveMsg(`✏️ العميل عدّل محتويات الطلب ${orderNum} (${payload.order.total_amount} ج.م)`);
+            setTimeout(() => setLiveMsg(null), 5000);
 
-        notify(
-          `تعديل طلب ${orderNum} ✏️`,
-          `العميل قام بتعديل محتويات الطلب\nالإجمالي الجديد: ${payload.order.total_amount} ج.م`,
-          '✏️'
-        );
-      }
+            playChime();
+
+            notify(
+              `تعديل طلب ${orderNum} ✏️`,
+              `العميل قام بتعديل محتويات الطلب\nالإجمالي الجديد: ${payload.order.total_amount} ج.م`,
+              '✏️'
+            );
+          }
+        } catch (err) {
+          console.error('Error handling SSE event:', err);
+        }
+      };
+
+      es.onerror = () => {
+        // الـ Polling يقوم بالتغطية المستمرة حتى لو حدث انقطاع في SSE
+      };
+    } catch (err) {
+      console.warn('SSE initialization error:', err);
+    }
+
+    return () => {
+      clearInterval(pollInterval);
+      if (es) es.close();
     };
-
-    es.onerror = () => {
-      console.warn('SSE connection error — سيعيد الاتصال تلقائياً');
-    };
-
-    return () => es.close();
   }, [fetchOrders]);
 
   // ── تحديث حالة الطلب ─────────────────────────────────────────────────────

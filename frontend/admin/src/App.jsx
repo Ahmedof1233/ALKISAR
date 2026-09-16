@@ -169,7 +169,7 @@ export default function App() {
   useEffect(() => {
     if (isAuth) {
       fetchStats();
-      const interval = setInterval(fetchStats, 30000);
+      const interval = setInterval(fetchStats, 3500);
       return () => clearInterval(interval);
     }
   }, [isAuth, fetchStats]);
