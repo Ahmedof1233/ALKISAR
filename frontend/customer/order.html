@@ -254,6 +254,43 @@
       background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.18);
       color:#f87171;border-radius:10px;padding:.6rem .9rem;font-size:.85rem;display:none;
     }
+    .input-invalid{
+      border-color:#ef4444!important;
+      box-shadow:0 0 0 3px rgba(239,68,68,.18)!important;
+    }
+    .order-items-box{
+      background:rgba(255,255,255,.025);
+      border:1px solid rgba(255,255,255,.07);
+      border-radius:16px;padding:.85rem 1rem;
+      margin:1rem 0;
+    }
+    .edit-order-btn{
+      background:rgba(249,115,22,.12);
+      border:1px solid rgba(249,115,22,.3);
+      color:var(--brand-l);border-radius:12px;
+      padding:.55rem 1.25rem;font-family:'Cairo',sans-serif;
+      font-size:.85rem;font-weight:700;cursor:pointer;
+      transition:all .2s;display:inline-flex;align-items:center;gap:.45rem;
+    }
+    .edit-order-btn:hover{
+      background:var(--brand);color:#fff;
+      box-shadow:0 6px 18px rgba(249,115,22,.3);
+      transform:translateY(-1px);
+    }
+    .cancel-edit-btn{
+      width:100%;border:1px solid rgba(255,255,255,.1);border-radius:12px;
+      padding:.6rem;background:transparent;color:var(--muted);
+      font-family:'Cairo',sans-serif;font-size:.85rem;font-weight:600;
+      cursor:pointer;transition:all .2s;margin-top:.4rem;display:none;
+    }
+    .cancel-edit-btn:hover{color:#fff;border-color:rgba(255,255,255,.25)}
+    .toast-popup{
+      position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);z-index:999;
+      background:var(--dark-3);border:1px solid var(--brand);
+      color:#fff;padding:.75rem 1.25rem;border-radius:14px;
+      font-size:.88rem;font-weight:700;box-shadow:0 12px 36px rgba(0,0,0,.6);
+      display:none;animation:fadeUp .3s ease-out;
+    }
 
     /* ── TRACKING SECTION (inline after order) ────────────────────────── */
     #tracking-section{
@@ -441,7 +478,7 @@
 <!-- LAYOUT -->
 <div class="layout">
   <div>
-    <!-- TRACKING SECTION (يظهر بعد الطلب) -->
+    <!-- TRACKING SECTION (يظهر بعد الطلب أو عند إعادة فتح الصفحة) -->
     <div id="tracking-section">
       <div class="tracking-header">
         <div>
@@ -453,6 +490,26 @@
           <div style="text-align:left;margin-top:.3rem">
             <span id="tr-badge" class="status-badge"></span>
           </div>
+        </div>
+      </div>
+
+      <!-- محتويات الطلب الحالي -->
+      <div id="tr-items-box" class="order-items-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+          <span style="font-weight:700;color:#fff;font-size:.88rem">📋 محتويات الطلب</span>
+          <span id="tr-items-count" style="font-size:.75rem;color:var(--muted)"></span>
+        </div>
+        <div id="tr-items-list" style="display:flex;flex-direction:column;gap:.35rem"></div>
+      </div>
+
+      <!-- زر تعديل الطلب (يظهر فقط في مرحلة الانتظار pending) -->
+      <div id="tr-edit-container" style="display:none;text-align:center;margin-bottom:1rem">
+        <button id="btn-edit-order" class="edit-order-btn" onclick="startEditingCurrentOrder()">
+          <span>✏️</span>
+          <span>تعديل محتويات الطلب (زيادة / إنقاص)</span>
+        </button>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:.35rem">
+          💡 يمكنك إضافة أو إزالة أصناف من القائمة طالما أن الطلب لم يبدأ تحضيره في المطبخ
         </div>
       </div>
 
@@ -506,8 +563,8 @@
   <div class="cart-sidebar" id="cart-sidebar">
     <div class="cart-box">
       <div class="cart-hdr">
-        <span class="cart-hdr-title">🛒 سلة الطلب</span>
-        <button class="clear-btn" onclick="clearCart()">مسح الكل</button>
+        <span class="cart-hdr-title" id="cart-hdr-title">🛒 سلة الطلب</span>
+        <button class="clear-btn" id="clear-cart-btn" onclick="clearCart()">مسح الكل</button>
       </div>
       <div class="cart-list" id="cart-list">
         <div class="cart-empty">
@@ -526,12 +583,13 @@
         <div class="form-section-label">بياناتك</div>
         <div class="form-input-row">
           <input id="cust-name"  class="form-input" type="text" placeholder="الاسم *"/>
-          <input id="cust-phone" class="form-input" type="tel"  placeholder="الجوال"/>
+          <input id="cust-phone" class="form-input" type="tel"  placeholder="الجوال *"/>
         </div>
         <input id="cust-address" class="form-input" type="text" placeholder="📍 عنوان التوصيل *"/>
         <input id="cust-notes"   class="form-input" type="text" placeholder="📝 ملاحظات (اختياري)"/>
         <div id="form-err" class="err-banner"></div>
-        <button id="submit-btn" class="submit-btn" onclick="submitOrder()">✅ أرسل طلبك الآن</button>
+        <button id="submit-btn" class="submit-btn" onclick="handleOrderAction()">✅ أرسل طلبك الآن</button>
+        <button id="cancel-edit-btn" class="cancel-edit-btn" onclick="cancelEditingOrder()">✕ إلغاء التعديل</button>
       </div>
     </div>
   </div>
@@ -721,57 +779,250 @@
     overlay.classList.toggle('show', !isOpen);
   }
 
-  // ── Submit Order ──────────────────────────────────────────────────────────
-  async function submitOrder() {
-    const name    = document.getElementById('cust-name').value.trim();
-    const phone   = document.getElementById('cust-phone').value.trim();
-    const address = document.getElementById('cust-address').value.trim();
+  // ── Action Handler (إرسال جديد أو حفظ تعديل) ───────────────────────────────
+  function handleOrderAction() {
+    if (isEditingOrder) {
+      saveOrderEdits();
+    } else {
+      submitOrder();
+    }
+  }
+
+  // ── Input Validation ───────────────────────────────────────────────────────
+  function validateOrderInputs() {
+    const nameEl    = document.getElementById('cust-name');
+    const phoneEl   = document.getElementById('cust-phone');
+    const addressEl = document.getElementById('cust-address');
+
+    nameEl.classList.remove('input-invalid');
+    phoneEl.classList.remove('input-invalid');
+    addressEl.classList.remove('input-invalid');
+
+    const name    = nameEl.value.trim();
+    const phone   = phoneEl.value.trim().replace(/[\s\-\(\)]/g, '');
+    const address = addressEl.value.trim();
     const notes   = document.getElementById('cust-notes').value.trim();
-    const errEl   = document.getElementById('form-err');
-    const btn     = document.getElementById('submit-btn');
     const items   = Object.values(cart);
 
-    errEl.style.display = 'none';
+    if (!name || name.length < 2) {
+      showErr('⚠️ يرجى إدخال اسمك الكريم (حرفين على الأقل)');
+      nameEl.classList.add('input-invalid');
+      nameEl.focus();
+      return null;
+    }
 
-    if (!name)    { showErr('⚠️ الرجاء إدخال اسمك');               return; }
-    if (!address) { showErr('⚠️ الرجاء إدخال عنوان التوصيل');      return; }
-    if (!items.length) { showErr('⚠️ السلة فارغة');               return; }
+    if (!phone) {
+      showErr('⚠️ رقم الهاتف مطلوب لتأكيد وتوصيل الطلب');
+      phoneEl.classList.add('input-invalid');
+      phoneEl.focus();
+      return null;
+    }
 
-    btn.disabled    = true;
-    btn.textContent = '⏳ جاري الإرسال...';
+    // التحقق من صحة الهاتف (رقم مصري 010/011/012/015 أو هاتف دولي صالح)
+    const egPhoneRegex = /^(?:\+?20|0020|0)?1[0125][0-9]{8}$/;
+    const generalPhoneRegex = /^\+?[0-9]{10,15}$/;
+    if (!egPhoneRegex.test(phone) && !generalPhoneRegex.test(phone)) {
+      showErr('⚠️ يرجى إدخال رقم هاتف صحيح للتواصل (مثال: 01012345678)');
+      phoneEl.classList.add('input-invalid');
+      phoneEl.focus();
+      return null;
+    }
+
+    if (!address || address.length < 4) {
+      showErr('⚠️ يرجى إدخال عنوان التوصيل بالتفصيل (المنطقة والشارع ورقم العمارة)');
+      addressEl.classList.add('input-invalid');
+      addressEl.focus();
+      return null;
+    }
+
+    if (!items.length) {
+      showErr('⚠️ سلة الطلب فارغة! يرجى اختيار وجبة من القائمة أولاً');
+      return null;
+    }
+
+    return { name, phone, address, notes, items };
+  }
+
+  // تنظيف علامات الخطأ بمجرد كتابة المستخدم
+  ['cust-name', 'cust-phone', 'cust-address'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', () => {
+        el.classList.remove('input-invalid');
+        document.getElementById('form-err').style.display = 'none';
+      });
+    }
+  });
+
+  // ── Submit Order (إنشاء طلب جديد) ───────────────────────────────────────────
+  async function submitOrder() {
+    const validated = validateOrderInputs();
+    if (!validated) return;
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ جاري إرسال الطلب...';
+    document.getElementById('form-err').style.display = 'none';
 
     try {
-      const res  = await fetch(`${API}/orders`, {
+      const res = await fetch(`${API}/orders`, {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer_name:    name,
-          customer_phone:   phone,
-          customer_address: address,
-          items: items.map(({item,qty})=>({id:item.id, name:item.name, qty, price:item.price})),
+          customer_name:    validated.name,
+          customer_phone:   validated.phone,
+          customer_address: validated.address,
+          items: validated.items.map(({item,qty}) => ({ id: item.id, name: item.name, qty, price: item.price })),
           total_amount: getTotal(),
-          notes,
+          notes: validated.notes,
         }),
       });
       const json = await res.json();
 
       if (json.success) {
+        activeOrder    = json.data;
         currentOrderId = json.data.id;
+
+        // 💾 حفظ رقم الطلب في الـ localStorage ليبقى ظاهراً عند الريفريش
+        localStorage.setItem('qaysar_active_order_id', json.data.id);
+        localStorage.setItem('qaysar_active_order_data', JSON.stringify(json.data));
+
         showTrackingSection(json.data);
         clearCart();
         closeMobileCart();
-        // إغلاق الفورم / السايدبار
+
+        // تظليل السايدبار للتركيز على متابعة الطلب النشط
         document.getElementById('cart-sidebar').style.opacity = '.4';
         document.getElementById('cart-sidebar').style.pointerEvents = 'none';
+
+        showToast('🎉 تم إرسال طلبك بنجاح وجارِ تحضيره!');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-        showErr(json.message || 'فشل الإرسال');
+        showErr(json.message || 'فشل إرسال الطلب');
       }
     } catch {
-      showErr('⚠️ تعذّر الاتصال بالخادم');
+      showErr('⚠️ تعذّر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت.');
     } finally {
-      btn.disabled    = false;
+      btn.disabled = false;
       btn.textContent = '✅ أرسل طلبك الآن';
+    }
+  }
+
+  // ── Edit Order (تعديل الأصناف قبل قبول الأدمن) ──────────────────────────────
+  let activeOrder = null;
+  let isEditingOrder = false;
+
+  function startEditingCurrentOrder() {
+    if (!activeOrder) return;
+    if (activeOrder.status !== 'pending') {
+      showToast('⚠️ لا يمكن التعديل بعد بدء الشيف في تحضير الطلب!');
+      return;
+    }
+
+    isEditingOrder = true;
+
+    // تعبئة السلة بالأصناف الحالية في الطلب
+    cart = {};
+    const orderItems = Array.isArray(activeOrder.items_json) ? activeOrder.items_json : [];
+    orderItems.forEach(it => {
+      const found = allItems.find(m => m.id === it.id || m.name === it.name);
+      const itemObj = found || {
+        id: it.id || Math.floor(Math.random() * 10000),
+        name: it.name,
+        price: it.price,
+        category: 'عام',
+        available: 1
+      };
+      cart[itemObj.id] = { item: itemObj, qty: it.quantity || it.qty || 1 };
+    });
+
+    // تحديث أزرار الأصناف في القائمة لتظهر كمياتها الحالية
+    allItems.forEach(i => updateCtrl(i.id));
+    renderCartUI();
+
+    // تجهيز صندوق السلة لوضع التعديل
+    const sidebar = document.getElementById('cart-sidebar');
+    sidebar.style.opacity = '1';
+    sidebar.style.pointerEvents = 'auto';
+
+    document.getElementById('cart-hdr-title').textContent = `✏️ تعديل طلب #${String(activeOrder.id).padStart(4, '0')}`;
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.textContent = '💾 حفظ التعديلات على الطلب';
+    submitBtn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+    document.getElementById('cancel-edit-btn').style.display = 'block';
+
+    if (activeOrder.notes) {
+      document.getElementById('cust-notes').value = activeOrder.notes;
+    }
+
+    if (window.innerWidth < 960) {
+      toggleMobileCart();
+    } else {
+      sidebar.scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+
+  function cancelEditingOrder(shouldClear = true) {
+    isEditingOrder = false;
+    if (shouldClear) clearCart();
+
+    document.getElementById('cart-hdr-title').textContent = '🛒 سلة الطلب';
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.textContent = '✅ أرسل طلبك الآن';
+    submitBtn.style.background = '';
+    document.getElementById('cancel-edit-btn').style.display = 'none';
+
+    if (activeOrder && activeOrder.status !== 'delivered') {
+      document.getElementById('cart-sidebar').style.opacity = '.4';
+      document.getElementById('cart-sidebar').style.pointerEvents = 'none';
+    }
+    closeMobileCart();
+  }
+
+  async function saveOrderEdits() {
+    if (!activeOrder) return;
+    const items = Object.values(cart);
+    if (!items.length) {
+      showErr('⚠️ لا يمكن حفظ طلب فارغ. يرجى إضافة وجبة واحدة على الأقل');
+      return;
+    }
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ جاري حفظ التعديلات...';
+    document.getElementById('form-err').style.display = 'none';
+
+    try {
+      const res = await fetch(`${API}/orders/${activeOrder.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: items.map(({item, qty}) => ({ id: item.id, name: item.name, qty, price: item.price })),
+          total_amount: getTotal(),
+          notes: document.getElementById('cust-notes').value.trim()
+        })
+      });
+      const json = await res.json();
+
+      if (json.success) {
+        activeOrder = json.data;
+        localStorage.setItem('qaysar_active_order_data', JSON.stringify(json.data));
+        showTrackingSection(json.data);
+        cancelEditingOrder(true);
+        showToast('✅ تم تحديث طلبك بنجاح!');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        showErr(json.message || 'تعذر تعديل الطلب');
+        if (json.message && (json.message.includes('بدأ') || json.message.includes('التحضير'))) {
+          // إذا انتقل الطلب لمرحلة التحضير أثناء التعديل
+          checkActiveOrder();
+        }
+      }
+    } catch {
+      showErr('⚠️ تعذر الاتصال بالخادم لحفظ التعديلات');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '💾 حفظ التعديلات على الطلب';
     }
   }
 
@@ -781,6 +1032,19 @@
     el.style.display = 'block';
   }
 
+  function showToast(msg) {
+    let t = document.getElementById('toast-popup');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'toast-popup';
+      t.className = 'toast-popup';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 4000);
+  }
+
   function closeMobileCart() {
     document.getElementById('cart-sidebar').classList.remove('mobile-show');
     document.getElementById('cart-overlay').classList.remove('show');
@@ -788,14 +1052,41 @@
 
   // ── Tracking Section ──────────────────────────────────────────────────────
   function showTrackingSection(order) {
+    activeOrder = order;
+    currentOrderId = order.id;
+
     document.getElementById('tr-id').textContent    = `طلب #${String(order.id).padStart(4,'0')}`;
     document.getElementById('tr-name').textContent  = order.customer_name;
     document.getElementById('tr-total').textContent = `${order.total_amount} ج.م`;
+
+    // عرض قائمة الأصناف داخل صندوق التتبع
+    const items = Array.isArray(order.items_json) ? order.items_json : [];
+    const listEl = document.getElementById('tr-items-list');
+    document.getElementById('tr-items-count').textContent = `(${items.length} أصناف)`;
+    listEl.innerHTML = items.map(it => `
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:.82rem;color:var(--text);padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.04)">
+        <span>${it.name}</span>
+        <div style="display:flex;gap:.75rem;align-items:center;">
+          <span style="color:var(--muted)">×${it.quantity || it.qty || 1}</span>
+          <span style="font-weight:700;color:var(--brand)">${((it.price || 0) * (it.quantity || it.qty || 1)).toFixed(0)} ج.م</span>
+        </div>
+      </div>
+    `).join('');
+
     renderTrackingStatus(order.status);
+
+    // زر التعديل متاح فقط في مرحلة "pending"
+    const editContainer = document.getElementById('tr-edit-container');
+    if (order.status === 'pending') {
+      editContainer.style.display = 'block';
+    } else {
+      editContainer.style.display = 'none';
+      if (isEditingOrder) cancelEditingOrder(true);
+    }
 
     document.getElementById('tracking-section').classList.add('show');
 
-    // SSE
+    // ── SSE: متابعة فورية لتحديثات الطلب ─────────────────────────────────────
     if (currentEs) currentEs.close();
     const es = new EventSource(`${API}/orders/stream?orderId=${order.id}`);
     currentEs = es;
@@ -803,23 +1094,39 @@
     es.onmessage = (e) => {
       const payload = JSON.parse(e.data);
       if ((payload.type === 'status_update' && payload.order.id === order.id) || payload.type === 'init') {
+        activeOrder.status = payload.order.status;
         renderTrackingStatus(payload.order.status);
+
+        // إخفاء زر التعديل إذا تحول الطلب إلى مرحلة التحضير أو بعدها
+        if (payload.order.status !== 'pending') {
+          editContainer.style.display = 'none';
+          if (isEditingOrder) cancelEditingOrder(true);
+        }
+
+        // إذا تم التسليم، يمكن للعميل البدء في طلب جديد بدون قفل السلة
+        if (payload.order.status === 'delivered') {
+          document.getElementById('cart-sidebar').style.opacity = '1';
+          document.getElementById('cart-sidebar').style.pointerEvents = 'auto';
+        }
+
         document.getElementById('tr-live-label').textContent =
           `آخر تحديث: ${new Date().toLocaleTimeString('ar-EG')}`;
-        // 🔔 نوتيفيكاشن للعميل بتغيير حالة الأوردر (فقط عند status_update)
+
         if (payload.type === 'status_update') {
-          const sCfg    = STATUS_CFG[payload.order.status] || STATUS_CFG.pending;
+          const sCfg = STATUS_CFG[payload.order.status] || STATUS_CFG.pending;
           const orderNum = `#${String(order.id).padStart(4, '0')}`;
-          notify(
-            `تحديث طلبك ${orderNum}`,
-            sCfg.label,
-            sCfg.icon || '🔔'
-          );
+          notify(`تحديث طلبك ${orderNum}`, sCfg.label, sCfg.icon || '🔔');
         }
       }
+
+      if (payload.type === 'order_updated' && payload.order.id === order.id) {
+        activeOrder = payload.order;
+        showTrackingSection(payload.order);
+      }
     };
+
     es.onerror = () => {
-      document.getElementById('tr-live-label').textContent = 'انقطع الاتصال — يحاول إعادة الاتصال...';
+      document.getElementById('tr-live-label').textContent = 'انقطع الاتصال — جاري إعادة المحاولة تلقائياً...';
     };
   }
 
@@ -849,24 +1156,63 @@
     });
   }
 
-  // ── Reset ─────────────────────────────────────────────────────────────────
+  // ── Reset For New Order ───────────────────────────────────────────────────
   function resetForNewOrder() {
+    localStorage.removeItem('qaysar_active_order_id');
+    localStorage.removeItem('qaysar_active_order_data');
+    activeOrder = null;
+    isEditingOrder = false;
+
     if (currentEs) { currentEs.close(); currentEs = null; }
     document.getElementById('tracking-section').classList.remove('show');
     const sidebar = document.getElementById('cart-sidebar');
     sidebar.style.opacity = '';
     sidebar.style.pointerEvents = '';
-    document.getElementById('cust-name').value    = '';
-    document.getElementById('cust-phone').value   = '';
-    document.getElementById('cust-address').value = '';
-    document.getElementById('cust-notes').value   = '';
+    clearCart();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // ── استرجاع الطلب النشط عند الريفريش أو إعادة فتح الصفحة ──────────────────
+  async function checkActiveOrder() {
+    const savedOrderId = localStorage.getItem('qaysar_active_order_id');
+    if (!savedOrderId) return;
+
+    try {
+      const res = await fetch(`${API}/orders/${savedOrderId}`);
+      const json = await res.json();
+
+      if (json.success && json.data) {
+        const order = json.data;
+        activeOrder = order;
+
+        // ملء بيانات العميل تلقائياً
+        if (order.customer_name)    document.getElementById('cust-name').value    = order.customer_name;
+        if (order.customer_phone)   document.getElementById('cust-phone').value   = order.customer_phone;
+        if (order.customer_address) document.getElementById('cust-address').value = order.customer_address;
+
+        // إبقاء الطلب معروضاً طول ما هو لسة موصلش لمرحلة تم التسليم
+        showTrackingSection(order);
+
+        if (order.status !== 'delivered') {
+          document.getElementById('cart-sidebar').style.opacity = '.4';
+          document.getElementById('cart-sidebar').style.pointerEvents = 'none';
+        }
+      } else {
+        localStorage.removeItem('qaysar_active_order_id');
+      }
+    } catch (e) {
+      console.warn('تعذر استرجاع الطلب النشط:', e);
+    }
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────
-  loadMenu();
-  // طلب إذن الإشعارات عند بداية التحميل
-  requestNotifyPermission();
+  async function init() {
+    await loadMenu();
+    requestNotifyPermission();
+    await checkActiveOrder();
+  }
+
+  init();
 </script>
 </body>
 </html>

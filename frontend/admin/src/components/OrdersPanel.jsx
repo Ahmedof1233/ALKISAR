@@ -316,6 +316,23 @@ export default function OrdersPanel() {
           '🆕'
         );
       }
+
+      if (payload.type === 'order_updated') {
+        const orderNum = `#${String(payload.order.id).padStart(4, '0')}`;
+        setOrders(prev =>
+          prev.map(o => o.id === payload.order.id ? payload.order : o)
+        );
+        setLiveMsg(`✏️ العميل عدّل محتويات الطلب ${orderNum} (${payload.order.total_amount} ج.م)`);
+        setTimeout(() => setLiveMsg(null), 5000);
+
+        playChime();
+
+        notify(
+          `تعديل طلب ${orderNum} ✏️`,
+          `العميل قام بتعديل محتويات الطلب\nالإجمالي الجديد: ${payload.order.total_amount} ج.م`,
+          '✏️'
+        );
+      }
     };
 
     es.onerror = () => {

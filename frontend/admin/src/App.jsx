@@ -132,25 +132,6 @@ function DashboardOverview({ stats }) {
           <div className="text-gray-500 text-xs sm:text-sm mt-1">جنيه مصري</div>
         </div>
       </div>
-
-      {/* Quick guide */}
-      <div className="card border-brand-500/10 bg-gradient-to-br from-brand-500/5 to-transparent">
-        <h3 className="text-white font-bold text-sm sm:text-base mb-3">🚀 دليل سريع</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 text-xs sm:text-sm text-gray-400">
-          <div className="bg-dark-700/50 rounded-xl p-3">
-            <div className="text-brand-400 font-bold mb-1">1. الطلبات الواردة</div>
-            اضغط <strong className="text-white">الطلبات</strong> لرؤية الطلبات وتغيير حالتها
-          </div>
-          <div className="bg-dark-700/50 rounded-xl p-3">
-            <div className="text-brand-400 font-bold mb-1">2. إدارة القائمة</div>
-            اضغط <strong className="text-white">الأصناف</strong> لإضافة/تعديل/حذف الأصناف
-          </div>
-          <div className="bg-dark-700/50 rounded-xl p-3">
-            <div className="text-brand-400 font-bold mb-1">3. تتبع العميل</div>
-            شارك رابط <code className="text-xs bg-dark-600 px-1 rounded">customer/index.html</code> مع العميل
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

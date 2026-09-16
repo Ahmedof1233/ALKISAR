@@ -618,9 +618,9 @@
       if (e.key === 'Enter') startTracking();
     });
 
-    // ملء رقم الطلب تلقائياً إذا جاء من صفحة الطلب
+    // ملء رقم الطلب تلقائياً إذا جاء من صفحة الطلب أو من الـ localStorage
     const urlParams = new URLSearchParams(window.location.search);
-    const urlOrderId = urlParams.get('orderId');
+    const urlOrderId = urlParams.get('orderId') || localStorage.getItem('qaysar_active_order_id');
     if (urlOrderId) {
       document.getElementById('order-id-input').value = urlOrderId;
       startTracking();
