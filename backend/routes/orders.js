@@ -100,6 +100,44 @@ router.get('/', async (req, res) => {
   }
 });
 
+// ── GET /api/orders/export  (تصدير ملخص الطلبات للـ PDF) —يجب أن يكون قبل /:id ——————
+ router.get('/export', async (req, res) => {
+  try {
+    const db = dbModule;
+    const { status = 'delivered', from, to } = req.query;
+
+    let sql = 'SELECT * FROM orders';
+    const params = [];
+    const conditions = [];
+
+    if (status !== 'all') {
+      conditions.push('status = ?');
+      params.push(status);
+    }
+    if (from) {
+      conditions.push('created_at >= ?');
+      params.push(from);
+    }
+    if (to) {
+      conditions.push('created_at <= ?');
+      params.push(to);
+    }
+    if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+    sql += ' ORDER BY created_at DESC';
+
+    const orders = await db.query(sql, params);
+    const parsed = orders.map(o => ({
+      ...o,
+      items_json: typeof o.items_json === 'string' ? JSON.parse(o.items_json || '[]') : (o.items_json || []),
+      total_amount: parseFloat(o.total_amount) || 0,
+    }));
+
+    res.json({ success: true, data: parsed, count: parsed.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ── GET /api/orders/:id ───────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
@@ -263,6 +301,18 @@ router.put('/:id', orderUpdateLimiter, validateUpdateOrder, async (req, res) => 
       message: 'تم تحديث محتويات طلبك بنجاح',
       data: updatedOrder
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── DELETE /api/orders (حذف جميع الطلبات — للأدمن فقط) ──────────────────────
+router.delete('/', async (req, res) => {
+  try {
+    const db = dbModule;
+    await db.run('DELETE FROM orders', []);
+    broadcast({ type: 'orders_cleared' }, null);
+    res.json({ success: true, message: 'تم حذف جميع الطلبات بنجاح' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

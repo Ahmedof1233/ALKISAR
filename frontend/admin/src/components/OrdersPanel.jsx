@@ -196,12 +196,15 @@ function FilterTab({ label, count, active, onClick, color }) {
 
 // ── مكوّن Panel الرئيسي ───────────────────────────────────────────────────────
 export default function OrdersPanel() {
-  const [orders,   setOrders]   = useState([]);
-  const [filter,   setFilter]   = useState('all');
-  const [loading,  setLoading]  = useState(true);
-  const [updating, setUpdating] = useState(null);
-  const [liveMsg,  setLiveMsg]  = useState(null);
-  const eventSourceRef          = useRef(null);
+  const [orders,      setOrders]      = useState([]);
+  const [filter,      setFilter]      = useState('all');
+  const [loading,     setLoading]     = useState(true);
+  const [updating,    setUpdating]    = useState(null);
+  const [liveMsg,     setLiveMsg]     = useState(null);
+  const [clearing,    setClearing]    = useState(false);
+  const [showClearDlg,setShowClearDlg]= useState(false);
+  const [exporting,   setExporting]   = useState(false);
+  const eventSourceRef                = useRef(null);
 
   // ── طلب إذن الإشعارات عند أول تحميل ────────────────────────────────────────
   useEffect(() => {
@@ -410,6 +413,105 @@ export default function OrdersPanel() {
     }
   };
 
+  // ── حذف جميع الطلبات ────────────────────────────────────────────────────────────────
+  const handleClearAll = async () => {
+    setClearing(true);
+    setShowClearDlg(false);
+    try {
+      const res  = await fetch(`${API_BASE}/orders`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        setOrders([]);
+        setFilter('all');
+      }
+    } catch (e) {
+      console.error('خطأ في مسح الطلبات:', e);
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  // ── تصدير PDF للطلبات المُسَلَّمَة ────────────────────────────────────────────────────
+  const handleExportPdf = async () => {
+    setExporting(true);
+    try {
+      const res  = await fetch(`${API_BASE}/orders/export?status=delivered`);
+      const json = await res.json();
+      if (!json.success) return;
+
+      const deliveredOrders = json.data;
+      const grandTotal      = deliveredOrders.reduce((s, o) => s + o.total_amount, 0);
+      const now             = new Date().toLocaleDateString('ar-EG', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+
+      const rows = deliveredOrders.map(o => {
+        const items = o.items_json.map(it =>
+          `<tr><td style="padding:3px 8px;color:#555">${it.name}</td><td style="padding:3px 8px;text-align:center;color:#555">×${it.qty || it.quantity || 1}</td><td style="padding:3px 8px;text-align:left;color:#555">${((it.price||0)*(it.qty||it.quantity||1)).toFixed(2)}</td></tr>`
+        ).join('');
+        return `
+          <div style="border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-bottom:12px;page-break-inside:avoid">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+              <div>
+                <span style="font-size:13px;font-weight:700;color:#111">#${String(o.id).padStart(4,'0')} &nbsp;&nbsp; ${o.customer_name}</span><br/>
+                <span style="font-size:11px;color:#6b7280">هاتف: ${o.customer_phone} &nbsp;|&nbsp; ${o.customer_address}</span>
+              </div>
+              <div style="text-align:left">
+                <span style="font-size:14px;font-weight:800;color:#ea580c">${o.total_amount.toFixed(2)} ج.م</span><br/>
+                <span style="font-size:10px;color:#9ca3af">${new Date(o.created_at).toLocaleDateString('ar-EG')}</span>
+              </div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead><tr style="background:#f9fafb">
+                <th style="padding:4px 8px;text-align:right;color:#374151">الصنف</th>
+                <th style="padding:4px 8px;text-align:center;color:#374151">كمية</th>
+                <th style="padding:4px 8px;text-align:left;color:#374151">سعر</th>
+              </tr></thead>
+              <tbody>${items}</tbody>
+            </table>
+            ${o.notes ? `<p style="margin:6px 0 0;font-size:11px;color:#9ca3af">ملاحظات: ${o.notes}</p>` : ''}
+          </div>`;
+      }).join('');
+
+      const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head>
+        <meta charset="UTF-8"/>
+        <title>تقرير مطعم القيصر</title>
+        <style>
+          *{box-sizing:border-box;margin:0;padding:0}
+          body{font-family:Arial,sans-serif;color:#111;padding:24px;direction:rtl}
+          @page{margin:18mm 14mm}
+          @media print{
+            .no-print{display:none!important}
+            body{padding:0}
+          }
+        </style>
+      </head><body>
+        <div style="text-align:center;margin-bottom:20px;border-bottom:2px solid #ea580c;padding-bottom:14px">
+          <div style="font-size:26px;font-weight:900;color:#ea580c">❤️ مطعم القيصر</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:4px">تقرير الطلبات المُسلَّمَة</div>
+          <div style="font-size:12px;color:#9ca3af;margin-top:2px">تاريخ التصدير: ${now}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 16px;margin-bottom:20px">
+          <span style="font-size:14px;font-weight:700;color:#374151">جملة الطلبات المُسلَّمَة: <strong style="color:#ea580c">${deliveredOrders.length}</strong> طلب</span>
+          <span style="font-size:16px;font-weight:900;color:#ea580c">إجمالي الإيرادات: ${grandTotal.toFixed(2)} ج.م</span>
+        </div>
+        ${rows || '<p style="text-align:center;color:#9ca3af;padding:40px">لا توجد طلبات مسلَّمَة حتى الآن</p>'}
+        <button class="no-print" onclick="window.print()" style="position:fixed;bottom:24px;right:24px;background:#ea580c;color:#fff;border:none;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(234,88,12,.4)">↓ حفظ PDF</button>
+      </body></html>`;
+
+      const win = window.open('', '_blank', 'width=900,height=700');
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 600);
+    } catch (e) {
+      console.error('PDF export error:', e);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // ── تصفية الطلبات ─────────────────────────────────────────────────────────
   const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
   const counts = {
@@ -431,19 +533,63 @@ export default function OrdersPanel() {
       )}
 
       {/* Header */}
-      <div className="flex flex-row items-center justify-between gap-3 mb-4 sm:mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-white">إدارة الطلبات</h2>
           <p className="text-gray-500 text-xs sm:text-sm mt-0.5">متابعة مراحل التحضير والتوصيل فورياً</p>
         </div>
-        <button
-          id="btn-refresh-orders"
-          onClick={() => fetchOrders(false)}
-          className="btn-ghost flex items-center gap-1.5 text-xs sm:text-sm py-2 px-3 shrink-0">
-          <span>🔄</span>
-          <span>تحديث</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* PDF Export */}
+          <button
+            id="btn-export-pdf"
+            onClick={handleExportPdf}
+            disabled={exporting}
+            className="flex items-center gap-1.5 text-xs sm:text-sm py-2 px-3 rounded-xl bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 transition-all disabled:opacity-50">
+            {exporting ? <span className="animate-spin">⏳</span> : <span>📄</span>}
+            <span>تصدير PDF</span>
+          </button>
+          {/* Clear All */}
+          <button
+            id="btn-clear-all-orders"
+            onClick={() => setShowClearDlg(true)}
+            disabled={clearing || orders.length === 0}
+            className="flex items-center gap-1.5 text-xs sm:text-sm py-2 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all disabled:opacity-50">
+            {clearing ? <span className="animate-spin">⏳</span> : <span>🗑️</span>}
+            <span>مسح الكل</span>
+          </button>
+          {/* Refresh */}
+          <button
+            id="btn-refresh-orders"
+            onClick={() => fetchOrders(false)}
+            className="btn-ghost flex items-center gap-1.5 text-xs sm:text-sm py-2 px-3 shrink-0">
+            <span>🔄</span>
+            <span>تحديث</span>
+          </button>
+        </div>
       </div>
+
+      {/* Confirm Clear Dialog */}
+      {showClearDlg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowClearDlg(false)}>
+          <div className="bg-dark-800 border border-red-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-slide-in" onClick={e => e.stopPropagation()}>
+            <div className="text-4xl text-center mb-3">🗑️</div>
+            <h3 className="text-lg font-bold text-white text-center mb-2">تأكيد حذف جميع الطلبات</h3>
+            <p className="text-gray-400 text-sm text-center mb-6">سيتم حذف <strong className="text-red-400">{orders.length} طلب</strong> نهائياً ولا يمكن التراجع عن هذا الإجراء.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowClearDlg(false)}
+                className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white transition-colors text-sm font-semibold">
+                إلغاء
+              </button>
+              <button
+                onClick={handleClearAll}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-bold transition-colors shadow-lg shadow-red-500/20">
+                نعم، احذف الكل
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="flex gap-1.5 sm:gap-2 mb-4 sm:mb-6 bg-dark-800 p-1.5 rounded-2xl overflow-x-auto max-w-full no-scrollbar">
